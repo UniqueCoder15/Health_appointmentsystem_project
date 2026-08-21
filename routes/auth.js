@@ -47,6 +47,7 @@ router.post('/login', validateLogin, (req, res) => {
     const { email, password } = req.body;
 
     const user = queries.findUserByEmail.get(email);
+    console.log('LOGIN DEBUG:', { email, userFound: !!user });
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
