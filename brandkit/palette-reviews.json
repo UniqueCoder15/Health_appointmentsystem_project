@@ -1,0 +1,67 @@
+{
+  "reviews": [
+    {
+      "stage": "palette",
+      "name": "Clinical Clarity",
+      "premise": "Clean medical blue-green system signaling precision, trust, and calm efficiency — the visual language of modern Indian healthcare.",
+      "keywords": ["precise", "clinical", "trustworthy", "accessible"],
+      "palette": [
+        { "hex": "#0c1a2e", "name": "Deep Navy", "role": "background" },
+        { "hex": "#f0f5f9", "name": "Clinical White", "role": "surface" },
+        { "hex": "#0d9488", "name": "Teal Signal", "role": "primary" },
+        { "hex": "#14b8a6", "name": "Teal Bright", "role": "accent" },
+        { "hex": "#22c55e", "name": "Healing Green", "role": "success" },
+        { "hex": "#f59e0b", "name": "Amber Alert", "role": "warning" },
+        { "hex": "#ef4444", "name": "Critical Red", "role": "danger" }
+      ],
+      "logo_ideas": [
+        "SS monogram with subtle directional arrow forming patient flow path",
+        "Abstract stethoscope cross-section morphing into upward trend line"
+      ],
+      "background_color": "#f0f5f9",
+      "text_color": "#0c1a2e"
+    },
+    {
+      "stage": "palette",
+      "name": "Calm Technology",
+      "premise": "Soothing sage-teal harmony balancing human warmth with technological precision — approachable healthcare that feels guided, not processed.",
+      "keywords": ["calm", "human", "guided", "modern"],
+      "palette": [
+        { "hex": "#0f1e1a", "name": "Forest Night", "role": "background" },
+        { "hex": "#f6faf7", "name": "Mist White", "role": "surface" },
+        { "hex": "#0f766e", "name": "Sage Teal", "role": "primary" },
+        { "hex": "#14b8a6", "name": "Sage Bright", "role": "accent" },
+        { "hex": "#16a34a", "name": "Life Green", "role": "success" },
+        { "hex": "#d97706", "name": "Warm Amber", "role": "warning" },
+        { "hex": "#dc2626", "name": "Alert Red", "role": "danger" }
+      ],
+      "logo_ideas": [
+        "Interlocking S forms creating a gentle guide curve — the Saarthi path",
+        "Minimal lotus petal suggesting wellness blooming through structured care"
+      ],
+      "background_color": "#f6faf7",
+      "text_color": "#0f1e1a"
+    },
+    {
+      "stage": "palette",
+      "name": "Guided Path",
+      "premise": "Sophisticated indigo-teal system with a distinctive saffron guide accent — expressing the Saarthi (charioteer) guiding patients through intelligent priority queues.",
+      "keywords": ["guided", "intelligent", "distinctive", "professional"],
+      "palette": [
+        { "hex": "#0f172a", "name": "Midnight Slate", "role": "background" },
+        { "hex": "#f8fafc", "name": "Slate White", "role": "surface" },
+        { "hex": "#0e7490", "name": "Medical Indigo", "role": "primary" },
+        { "hex": "#06b6d4", "name": "Sky Teal", "role": "accent" },
+        { "hex": "#f59e0b", "name": "Saarthi Saffron", "role": "guide" },
+        { "hex": "#22c55e", "name": "Clinical Green", "role": "success" },
+        { "hex": "#ef4444", "name": "Emergency Red", "role": "danger" }
+      ],
+      "logo_ideas": [
+        "Stylized chariot wheel spoke forming an 'S' with forward momentum",
+        "Priority queue visualization: ordered dots with one highlighted guide dot"
+      ],
+      "background_color": "#f8fafc",
+      "text_color": "#0f172a"
+    }
+  ]
+}

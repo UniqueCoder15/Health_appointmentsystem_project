@@ -1,0 +1,48 @@
+{
+  "brandbookElements": [],
+  "essentialKitApproved": false,
+  "palette": {
+    "approvalSummary": "Guided Path palette selected for Swasthya Saarthi — indigo-teal system with distinctive saffron guide accent expressing the Saarthi (charioteer) guiding patients through intelligent priority queues.",
+    "colors": [
+      {
+        "hex": "#0f172a",
+        "name": "Midnight Slate",
+        "role": "background"
+      },
+      {
+        "hex": "#f8fafc",
+        "name": "Slate White",
+        "role": "surface"
+      },
+      {
+        "hex": "#0e7490",
+        "name": "Medical Indigo",
+        "role": "primary"
+      },
+      {
+        "hex": "#06b6d4",
+        "name": "Sky Teal",
+        "role": "accent"
+      },
+      {
+        "hex": "#f59e0b",
+        "name": "Saarthi Saffron",
+        "role": "guide"
+      },
+      {
+        "hex": "#22c55e",
+        "name": "Clinical Green",
+        "role": "success"
+      },
+      {
+        "hex": "#ef4444",
+        "name": "Emergency Red",
+        "role": "danger"
+      }
+    ],
+    "gradients": [],
+    "origin": "brandkit_generated",
+    "revision": 1
+  },
+  "version": 1
+}

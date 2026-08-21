@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Swasthya Saarthi — Self Check-in Kiosk</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/kiosk/styles.css">
+  <script src="/motion/motion.min.js"></script>
+</head>
+<body>
+
+  <!-- Top Kiosk Header -->
+  <header class="kiosk-header">
+    <div class="kiosk-brand">
+      <div class="kiosk-logo-icon"><img src="/images/logo.jpg" alt="Swasthya Saarthi Logo"></div>
+      <div>
+        <h1>Swasthya Saarthi</h1>
+        <span class="kiosk-tagline">Self Check-in Kiosk</span>
+      </div>
+    </div>
+    <div class="kiosk-time" id="kiosk-time">Loading...</div>
+  </header>
+
+  <!-- Main Kiosk Content -->
+  <main class="kiosk-main">
+
+    <!-- Step 1: Welcome / Language Selection -->
+    <section id="step-welcome" class="kiosk-step active" data-step="1">
+      <div class="kiosk-card">
+        <div class="step-header">
+          <div class="step-indicator">Step 1 of 4</div>
+          <h2>Welcome to Swasthya Saarthi</h2>
+          <p class="step-subtitle">Please select your preferred language to begin</p>
+        </div>
+
+        <div class="language-grid" id="language-grid">
+          <!-- Populated by JS -->
+        </div>
+
+        <div class="kiosk-footer-actions">
+          <button class="btn btn-primary btn-xl" id="welcome-next-btn" disabled>Continue →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 2: Visit Type Selection -->
+    <section id="step-visit-type" class="kiosk-step" data-step="2" style="display: none;">
+      <div class="kiosk-card">
+        <div class="step-header">
+          <div class="step-indicator">Step 2 of 4</div>
+          <h2>How can we help you today?</h2>
+          <p class="step-subtitle">Select the type of visit</p>
+        </div>
+
+        <div class="visit-type-grid" id="visit-type-grid">
+          <button class="visit-type-card" data-type="walkin">
+            <div class="visit-icon">🚶</div>
+            <div class="visit-title">Walk-in Appointment</div>
+            <div class="visit-desc">See a doctor today without prior booking</div>
+            <div class="visit-badge">Available now</div>
+          </button>
+          <button class="visit-type-card" data-type="booked">
+            <div class="visit-icon">📅</div>
+            <div class="visit-title">Check-in for Booked Appointment</div>
+            <div class="visit-desc">I have a scheduled appointment</div>
+            <div class="visit-badge">Verify booking</div>
+          </button>
+          <button class="visit-type-card" data-type="queue-only">
+            <div class="visit-icon">📋</div>
+            <div class="visit-title">View Live Queue Only</div>
+            <div class="visit-desc">Check current wait times and positions</div>
+            <div class="visit-badge">No check-in needed</div>
+          </button>
+        </div>
+
+        <div class="kiosk-footer-actions">
+          <button class="btn btn-outline btn-xl" onclick="goToStep(1)">← Back</button>
+          <button class="btn btn-primary btn-xl" id="visit-next-btn" disabled>Continue →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 3a: Walk-in Booking Flow -->
+    <section id="step-walkin-doctor" class="kiosk-step" data-step="3a" style="display: none;">
+      <div class="kiosk-card">
+        <div class="step-header">
+          <div class="step-indicator">Step 3 of 4</div>
+          <h2>Choose a Doctor</h2>
+          <p class="step-subtitle">Select a specialist available for walk-in today</p>
+        </div>
+
+        <div class="doctor-search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="doctor-search-input" placeholder="Search by name or specialty..." autocomplete="off">
+        </div>
+
+        <div class="specialty-filter" id="specialty-filter">
+          <!-- Populated by JS -->
+        </div>
+
+        <div class="doctor-list" id="walkin-doctor-list">
+          <!-- Populated by JS -->
+        </div>
+
+        <div class="kiosk-footer-actions">
+          <button class="btn btn-outline btn-xl" onclick="goToStep(2)">← Back</button>
+          <button class="btn btn-primary btn-xl" id="doctor-next-btn" disabled>Continue →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 3b: Booked Appointment Check-in -->
+    <section id="step-booked-checkin" class="kiosk-step" data-step="3b" style="display: none;">
+      <div class="kiosk-card">
+        <div class="step-header">
+          <div class="step-indicator">Step 3 of 4</div>
+          <h2>Check-in for Your Appointment</h2>
+          <p class="step-subtitle">Enter your details to find your booking</p>
+        </div>
+
+        <div class="checkin-methods">
+          <button class="checkin-method-card active" data-method="phone">
+            <div class="method-icon">📱</div>
+            <div class="method-title">Phone Number</div>
+            <div class="method-desc">Enter your registered phone number</div>
+          </button>
+          <button class="checkin-method-card" data-method="email">
+            <div class="method-icon">📧</div>
+            <div class="method-title">Email Address</div>
+            <div class="method-desc">Enter your registered email</div>
+          </button>
+          <button class="checkin-method-card" data-method="booking-id">
+            <div class="method-icon">🔢</div>
+            <div class="method-title">Booking ID</div>
+            <div class="method-desc">Enter your appointment reference</div>
+          </button>
+        </div>
+
+        <div class="checkin-input-wrapper" id="checkin-phone-input">
+          <label class="form-label">Phone Number</label>
+          <div class="phone-input-group">
+            <span class="country-code">+91</span>
+            <input type="tel" id="checkin-phone" placeholder="XXXXXXXXXX" maxlength="10" inputmode="numeric">
+          </div>
+        </div>
+        <div class="checkin-input-wrapper" id="checkin-email-input" style="display: none;">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="checkin-email" placeholder="your@email.com" autocomplete="email">
+        </div>
+        <div class="checkin-input-wrapper" id="checkin-booking-input" style="display: none;">
+          <label class="form-label">Booking Reference</label>
+          <input type="text" id="checkin-booking-id" placeholder="e.g., SWA-2026-00123" autocomplete="off" style="text-transform: uppercase;">
+        </div>
+
+        <div class="kiosk-footer-actions">
+          <button class="btn btn-outline btn-xl" onclick="goToStep(2)">← Back</button>
+          <button class="btn btn-primary btn-xl" id="checkin-next-btn" disabled>Find Appointment →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 3c: Live Queue View Only -->
+    <section id="step-queue-view" class="kiosk-step" data-step="3c" style="display: none;">
+      <div class="kiosk-card">
+        <div class="step-header">
+          <div class="step-indicator">Step 3 of 4</div>
+          <h2>Live Queue Status</h2>
+          <p class="step-subtitle">Real-time queue for all doctors today</p>
+        </div>
+
+        <div class="queue-filter-tabs" id="queue-filter-tabs">
+          <!-- Populated by JS -->
+        </div>
+
+        <div class="live-queue-display" id="live-queue-display">
+          <!-- Populated by JS/SSE -->
+        </div>
+
+        <div class="kiosk-footer-actions">
+          <button class="btn btn-outline btn-xl" onclick="goToStep(2)">← Back</button>
+          <button class="btn btn-primary btn-xl" onclick="goToStep(1)">Done →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 4: Patient Details (for walk-in) -->
+    <section id="step-patient-details" class="kiosk-step" data-step="4" style="display: none;">
+      <div class="kiosk-card">
+        <div class="step-header">
+          <div class="step-indicator">Step 4 of 4</div>
+          <h2>Enter Your Details</h2>
+          <p class="step-subtitle">We need this to create your walk-in appointment</p>
+        </div>
+
+        <div class="patient-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Full Name <span class="required">*</span></label>
+              <input type="text" class="form-input form-input-lg" id="patient-name" placeholder="Enter your full name" autocomplete="name">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phone Number <span class="required">*</span></label>
+              <div class="phone-input-group">
+                <span class="country-code">+91</span>
+                <input type="tel" class="form-input form-input-lg" id="patient-phone" placeholder="XXXXXXXXXX" maxlength="10" inputmode="numeric">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Email (optional)</label>
+              <input type="email" class="form-input form-input-lg" id="patient-email" placeholder="your@email.com" autocomplete="email">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Age <span class="required">*</span></label>
+              <input type="number" class="form-input form-input-lg" id="patient-age" placeholder="Age" min="1" max="120">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Reason for Visit <span class="required">*</span></label>
+            <textarea class="form-textarea form-textarea-lg" id="patient-reason" rows="3" placeholder="Describe your symptoms or reason for visit..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Priority Level</label>
+            <select class="form-select form-select-lg" id="patient-priority">
+              <option value="3">Normal — Standard walk-in</option>
+              <option value="2">High — Urgent concern, needs attention soon</option>
+              <option value="1">Critical — Emergency/acute symptoms</option>
+              <option value="4">Low — Routine follow-up</option>
+              <option value="5">Routine — Annual checkup, preventive</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="kiosk-footer-actions">
+          <button class="btn btn-outline btn-xl" onclick="goToStep('3a')">← Back</button>
+          <button class="btn btn-primary btn-xl" id="submit-walkin-btn">Confirm & Book Appointment →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 4b: Appointment Found / Confirm Check-in -->
+    <section id="step-confirm-checkin" class="kiosk-step" data-step="4b" style="display: none;">
+      <div class="kiosk-card">
+        <div class="step-header">
+          <div class="step-indicator">Step 4 of 4</div>
+          <h2>Confirm Check-in</h2>
+          <p class="step-subtitle">Review your appointment details</p>
+        </div>
+
+        <div class="appointment-confirmation" id="appointment-confirmation">
+          <!-- Populated by JS -->
+        </div>
+
+        <div class="kiosk-footer-actions">
+          <button class="btn btn-outline btn-xl" onclick="goToStep('3b')">← Back</button>
+          <button class="btn btn-primary btn-xl" id="confirm-checkin-btn">Confirm Check-in →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Success / Confirmation Screen -->
+    <section id="step-success" class="kiosk-step" data-step="success" style="display: none;">
+      <div class="kiosk-card success-card">
+        <div class="success-animation">
+          <div class="checkmark-circle">
+            <svg viewBox="0 0 52 52" class="checkmark-svg"><circle class="checkmark-circle-bg" cx="26" cy="26" r="25" fill="none"/><path class="checkmark-path" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg>
+          </div>
+        </div>
+        <h2 id="success-title">Check-in Complete!</h2>
+        <p id="success-message">Your appointment has been confirmed.</p>
+
+        <div class="success-details" id="success-details">
+          <!-- Populated by JS -->
+        </div>
+
+        <div class="queue-position-display" id="queue-position-display">
+          <!-- Populated by JS -->
+        </div>
+
+        <div class="kiosk-footer-actions">
+          <button class="btn btn-primary btn-xl" onclick="resetKiosk()">Start New Check-in</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom Kiosk Info Bar -->
+  <footer class="kiosk-footer">
+    <div class="footer-info">
+      <span>🏥 Swasthya Saarthi — Smart Healthcare Platform</span>
+      <span>📞 Support: 1800-XXX-XXXX</span>
+      <span>🌐 Team MedOptima</span>
+    </div>
+    <div class="accessibility-controls">
+      <button class="accessibility-btn" onclick="toggleHighContrast()" aria-label="Toggle high contrast">
+        <span>🌓</span> Contrast
+      </button>
+      <button class="accessibility-btn" onclick="toggleTextSize()" aria-label="Increase text size">
+        <span>🔍</span> Text Size
+      </button>
+    </div>
+  </footer>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loading-overlay" style="display: none;">
+    <div class="loading-spinner"></div>
+    <p id="loading-text">Processing...</p>
+  </div>
+
+  <!-- Error Toast -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="/kiosk/app.js"></script>
+</body>
+</html>

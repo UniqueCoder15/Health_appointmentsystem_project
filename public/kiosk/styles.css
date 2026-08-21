@@ -1,0 +1,1321 @@
+/* ============================================================================
+   Swasthya Saarthi — Kiosk Mode Styles
+   Large touch targets (min 60px), high contrast, accessibility-first
+   ========================================================================== */
+
+/* Kiosk-specific CSS variables */
+:root {
+  --kiosk-touch-target: 64px;
+  --kiosk-touch-target-lg: 80px;
+  --kiosk-font-base: 1.125rem;
+  --kiosk-font-lg: 1.375rem;
+  --kiosk-font-xl: 1.75rem;
+  --kiosk-font-xxl: 2.5rem;
+  --kiosk-card-padding: 2.5rem;
+  --kiosk-gap: 1.5rem;
+}
+
+/* ============================================================================
+   Base Kiosk Layout
+   ========================================================================== */
+body.kiosk-mode {
+  background: var(--bg-app);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.kiosk-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-nav);
+  background: var(--primary-gradient);
+  color: var(--text-inverse);
+  padding: 1rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-lg);
+}
+
+/* Override --cta references to use Saarthi Saffron in kiosk mode */
+:root {
+  --kiosk-cta: var(--saarthi-saffron);
+  --kiosk-cta-hover: var(--saarthi-saffron-hover);
+  --kiosk-cta-light: var(--cta-light);
+  --kiosk-cta-gradient: var(--cta-gradient);
+  --kiosk-success: var(--success);
+  --kiosk-success-bg: var(--success-bg);
+  --kiosk-warning: var(--warning);
+  --kiosk-warning-bg: var(--warning-bg);
+  --kiosk-danger: var(--danger);
+  --kiosk-danger-bg: var(--danger-bg);
+  --kiosk-primary: var(--primary);
+  --kiosk-primary-hover: var(--primary-hover);
+  --kiosk-primary-light: var(--primary-light);
+  --kiosk-primary-gradient: var(--primary-gradient);
+}
+
+.kiosk-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.kiosk-logo-icon {
+  width: 56px;
+  height: 56px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+}
+
+.kiosk-brand h1 {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 900;
+  font-size: var(--kiosk-font-xl);
+  color: var(--text-inverse);
+  letter-spacing: -0.02em;
+}
+
+.kiosk-tagline {
+  font-size: var(--kiosk-font-base);
+  opacity: 0.85;
+  font-weight: 500;
+}
+
+.kiosk-time {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 700;
+  font-size: var(--kiosk-font-lg);
+  background: rgba(255,255,255,0.15);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(8px);
+}
+
+.kiosk-main {
+  flex: 1;
+  padding: 6rem 1.5rem 8rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.kiosk-step {
+  width: 100%;
+  animation: fadeInUp var(--dur-mid) var(--ease-out);
+}
+
+.kiosk-step:not(.active) {
+  display: none;
+}
+
+.kiosk-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  padding: var(--kiosk-card-padding);
+  width: 100%;
+  border: 1px solid var(--border-color);
+}
+
+.step-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.step-indicator {
+  display: inline-block;
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: 0.4rem 1rem;
+  border-radius: var(--radius-full);
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+.step-header h2 {
+  font-size: var(--kiosk-font-xxl);
+  margin-bottom: 0.5rem;
+  color: var(--text-main);
+}
+
+.step-subtitle {
+  font-size: var(--kiosk-font-lg);
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* ============================================================================
+   Language Grid
+   ========================================================================== */
+.language-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.language-card {
+  min-height: var(--kiosk-touch-target-lg);
+  padding: 1.5rem 1rem;
+  background: var(--bg-app);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--dur-fast) ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--kiosk-font-base);
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.language-card:hover,
+.language-card:focus-visible {
+  border-color: var(--kiosk-cta);
+  background: var(--kiosk-cta-light);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.language-card.selected {
+  border-color: var(--kiosk-cta);
+  background: var(--kiosk-cta-gradient);
+  color: #fff;
+  box-shadow: var(--shadow-cta);
+}
+
+.language-card .lang-native {
+  font-size: 0.85rem;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.language-card.selected .lang-native {
+  opacity: 1;
+}
+
+/* ============================================================================
+   Visit Type Grid
+   ========================================================================== */
+.visit-type-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.visit-type-card {
+  min-height: 140px;
+  padding: 1.5rem;
+  background: var(--bg-app);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--dur-fast) ease;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  text-align: left;
+  font-size: var(--kiosk-font-base);
+}
+
+.visit-type-card:hover,
+.visit-type-card:focus-visible {
+  border-color: var(--kiosk-cta);
+  background: var(--kiosk-cta-light);
+  transform: translateX(4px);
+  box-shadow: var(--shadow-md);
+}
+
+.visit-type-card.selected {
+  border-color: var(--kiosk-cta);
+  background: var(--kiosk-cta-gradient);
+  color: #fff;
+  box-shadow: var(--shadow-cta);
+}
+
+.visit-icon {
+  font-size: 2.5rem;
+  flex-shrink: 0;
+  width: 70px;
+  text-align: center;
+}
+
+.visit-title {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 800;
+  font-size: var(--kiosk-font-lg);
+  margin-bottom: 0.25rem;
+}
+
+.visit-desc {
+  font-size: var(--kiosk-font-base);
+  opacity: 0.8;
+  margin-bottom: 0.5rem;
+}
+
+.visit-badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full);
+  background: rgba(255,255,255,0.2);
+}
+
+.visit-type-card:not(.selected) .visit-badge {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+/* ============================================================================
+   Doctor Search & Filter
+   ========================================================================== */
+.doctor-search-box {
+  margin-bottom: 1.5rem;
+}
+
+.doctor-search-box .search-icon {
+  position: absolute;
+  left: 1.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.25rem;
+  color: var(--text-muted);
+}
+
+.doctor-search-box input {
+  width: 100%;
+  min-height: var(--kiosk-touch-target-lg);
+  padding: 0 1rem 0 3.5rem;
+  font-size: var(--kiosk-font-lg);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+  color: var(--text-main);
+}
+
+.doctor-search-box input:focus {
+  outline: none;
+  border-color: var(--kiosk-cta);
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
+}
+
+.specialty-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.specialty-chip {
+  padding: 0.75rem 1.25rem;
+  background: var(--bg-app);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-full);
+  font-size: var(--kiosk-font-base);
+  font-weight: 700;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all var(--dur-fast) ease;
+  min-height: var(--kiosk-touch-target);
+}
+
+.specialty-chip:hover,
+.specialty-chip:focus-visible,
+.specialty-chip.active {
+  border-color: var(--kiosk-cta);
+  background: var(--kiosk-cta);
+  color: #fff;
+}
+
+.doctor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.doctor-card-kiosk {
+  min-height: 120px;
+  padding: 1.25rem 1.5rem;
+  background: var(--card-bg);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--dur-fast) ease;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.doctor-card-kiosk:hover,
+.doctor-card-kiosk:focus-visible {
+  border-color: var(--kiosk-cta);
+  box-shadow: var(--shadow-md);
+  transform: translateX(4px);
+}
+
+.doctor-card-kiosk.selected {
+  border-color: var(--kiosk-cta);
+  background: var(--kiosk-cta-light);
+  box-shadow: var(--shadow-cta);
+}
+
+.doctor-card-kiosk .doc-avatar {
+  width: 70px;
+  height: 70px;
+  border-radius: var(--radius-md);
+  background: var(--primary-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 1.75rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.doctor-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.doctor-info .doc-name {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 800;
+  font-size: var(--kiosk-font-lg);
+  color: var(--text-main);
+  margin-bottom: 0.25rem;
+}
+
+.doctor-info .doc-spec {
+  font-size: var(--kiosk-font-base);
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.doctor-meta {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.doctor-meta span {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.doctor-meta .meta-value {
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+/* ============================================================================
+   Check-in Methods
+   ========================================================================== */
+.checkin-methods {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.checkin-method-card {
+  min-height: 130px;
+  padding: 1.5rem 1rem;
+  background: var(--bg-app);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--dur-fast) ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.checkin-method-card:hover,
+.checkin-method-card:focus-visible {
+  border-color: var(--kiosk-cta);
+  background: var(--kiosk-cta-light);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.checkin-method-card.active {
+  border-color: var(--kiosk-cta);
+  background: var(--kiosk-cta-gradient);
+  color: #fff;
+  box-shadow: var(--shadow-cta);
+}
+
+.method-icon {
+  font-size: 2rem;
+}
+
+.method-title {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 800;
+  font-size: var(--kiosk-font-base);
+}
+
+.method-desc {
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.checkin-input-wrapper {
+  margin-bottom: 1.5rem;
+}
+
+.checkin-input-wrapper .form-label {
+  font-size: var(--kiosk-font-base);
+}
+
+.phone-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.phone-input-group .country-code {
+  min-height: var(--kiosk-touch-target-lg);
+  padding: 0 1.25rem;
+  background: var(--primary-light);
+  color: var(--primary);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: var(--kiosk-font-lg);
+  font-weight: 700;
+}
+
+.phone-input-group input {
+  flex: 1;
+  min-height: var(--kiosk-touch-target-lg);
+  padding: 0 1.25rem;
+  font-size: var(--kiosk-font-lg);
+  letter-spacing: 0.15em;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+  color: var(--text-main);
+}
+
+.phone-input-group input:focus {
+  outline: none;
+  border-color: var(--kiosk-cta);
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.18);
+}
+
+.checkin-input-wrapper input,
+.checkin-input-wrapper textarea {
+  min-height: var(--kiosk-touch-target-lg);
+  font-size: var(--kiosk-font-lg);
+  padding: 1rem 1.25rem;
+}
+
+/* ============================================================================
+   Live Queue Display
+   ========================================================================== */
+.queue-filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  justify-content: center;
+}
+
+.queue-filter-tab {
+  min-height: var(--kiosk-touch-target);
+  padding: 0.75rem 1.5rem;
+  background: var(--bg-app);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-full);
+  font-size: var(--kiosk-font-base);
+  font-weight: 700;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all var(--dur-fast) ease;
+}
+
+.queue-filter-tab:hover,
+.queue-filter-tab:focus-visible,
+.queue-filter-tab.active {
+  border-color: var(--kiosk-cta);
+  background: var(--kiosk-cta);
+  color: #fff;
+}
+
+.live-queue-display {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-height: 450px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.queue-doctor-group {
+  background: var(--card-bg);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.queue-doctor-header {
+  padding: 1.25rem 1.5rem;
+  background: var(--primary-gradient);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.queue-doctor-header .doc-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.queue-doctor-header .doc-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.queue-doctor-header .doc-name {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 800;
+  font-size: var(--kiosk-font-lg);
+}
+
+.queue-doctor-header .doc-spec {
+  font-size: var(--kiosk-font-base);
+  opacity: 0.9;
+}
+
+.queue-doctor-header .queue-stats {
+  display: flex;
+  gap: 1.5rem;
+  font-size: var(--kiosk-font-base);
+}
+
+.queue-doctor-header .stat {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+}
+
+.queue-patient-list {
+  padding: 1rem 1.5rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.queue-patient-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: var(--bg-app);
+  border-radius: var(--radius-md);
+  margin-bottom: 0.75rem;
+  min-height: var(--kiosk-touch-target);
+}
+
+.queue-patient-item:last-child {
+  margin-bottom: 0;
+}
+
+.queue-patient-item.current {
+  background: var(--kiosk-cta-light);
+  border: 2px solid var(--kiosk-cta);
+}
+
+.queue-patient-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.queue-patient-item .patient-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: var(--primary-gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.queue-patient-item .patient-name {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 800;
+  font-size: var(--kiosk-font-lg);
+  color: var(--text-main);
+}
+
+.queue-patient-right {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  font-size: var(--kiosk-font-base);
+}
+
+.queue-patient-right .queue-position {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 900;
+  font-size: var(--kiosk-font-xl);
+  color: var(--primary);
+}
+
+.queue-patient-item.current .queue-position {
+  color: var(--kiosk-cta);
+}
+
+.queue-patient-right .wait-time {
+  color: var(--text-muted);
+}
+
+.queue-patient-right .priority-badge {
+  min-width: 120px;
+  text-align: center;
+}
+
+/* Empty queue state */
+.queue-empty {
+  padding: 3rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.queue-empty .empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+/* ============================================================================
+   Patient Form (Walk-in)
+   ========================================================================== */
+.patient-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group .form-label {
+  font-size: var(--kiosk-font-base);
+  font-weight: 700;
+}
+
+.required {
+  color: var(--danger);
+}
+
+.form-input-lg,
+.form-select-lg,
+.form-textarea-lg {
+  min-height: var(--kiosk-touch-target-lg) !important;
+  font-size: var(--kiosk-font-lg) !important;
+  padding: 1rem 1.25rem !important;
+}
+
+.form-textarea-lg {
+  min-height: 120px !important;
+}
+
+/* ============================================================================
+   Appointment Confirmation
+   ========================================================================== */
+.appointment-confirmation {
+  background: var(--bg-app);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.confirmation-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border-color);
+  font-size: var(--kiosk-font-base);
+}
+
+.confirmation-row:last-child {
+  border-bottom: none;
+}
+
+.confirmation-label {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.confirmation-value {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 800;
+  font-size: var(--kiosk-font-lg);
+  color: var(--text-main);
+  text-align: right;
+}
+
+.confirmation-value.highlight {
+  color: var(--kiosk-cta);
+}
+
+/* ============================================================================
+   Success Screen
+   ========================================================================== */
+.success-card {
+  text-align: center;
+  padding: 3rem 2rem;
+}
+
+.success-animation {
+  margin-bottom: 2rem;
+}
+
+.checkmark-circle {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto;
+  background: var(--kiosk-cta-gradient);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: scaleIn 0.5s var(--ease-out);
+}
+
+.checkmark-svg {
+  width: 60px;
+  height: 60px;
+}
+
+.checkmark-circle-bg {
+  stroke: #fff;
+  stroke-width: 4;
+}
+
+.checkmark-path {
+  stroke: #fff;
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 50;
+  stroke-dashoffset: 50;
+  animation: drawCheckmark 0.4s var(--ease-out) 0.3s forwards;
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+
+@keyframes drawCheckmark {
+  to { stroke-dashoffset: 0; }
+}
+
+.success-card h2 {
+  font-size: var(--kiosk-font-xxl);
+  margin-bottom: 0.75rem;
+  color: var(--text-main);
+}
+
+.success-card #success-message {
+  font-size: var(--kiosk-font-lg);
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+}
+
+.success-details {
+  background: var(--bg-app);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  text-align: left;
+}
+
+.success-details .detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border-color);
+  font-size: var(--kiosk-font-base);
+}
+
+.success-details .detail-row:last-child {
+  border-bottom: none;
+}
+
+.success-details .detail-label {
+  color: var(--text-muted);
+}
+
+.success-details .detail-value {
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.queue-position-display {
+  background: var(--primary-gradient);
+  color: #fff;
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.queue-position-display .position-label {
+  font-size: var(--kiosk-font-lg);
+  opacity: 0.9;
+  margin-bottom: 0.5rem;
+}
+
+.queue-position-display .position-number {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 900;
+  font-size: 4rem;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.queue-position-display .position-wait {
+  font-size: var(--kiosk-font-lg);
+  opacity: 0.85;
+}
+
+/* ============================================================================
+   Footer Actions
+   ========================================================================== */
+.kiosk-footer-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
+.kiosk-footer-actions .btn {
+  min-width: 200px;
+}
+
+.btn-xl {
+  min-height: var(--kiosk-touch-target-lg) !important;
+  padding: 1rem 2.5rem !important;
+  font-size: var(--kiosk-font-lg) !important;
+  border-radius: var(--radius-md) !important;
+}
+
+/* ============================================================================
+   Kiosk Footer
+   ========================================================================== */
+.kiosk-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-nav);
+  background: var(--card-bg);
+  border-top: 1px solid var(--border-color);
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.footer-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.accessibility-controls {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.accessibility-btn {
+  min-height: var(--kiosk-touch-target);
+  padding: 0.6rem 1rem;
+  background: var(--bg-app);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-main);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all var(--dur-fast) ease;
+}
+
+.accessibility-btn:hover,
+.accessibility-btn:focus-visible {
+  border-color: var(--kiosk-cta);
+  background: var(--kiosk-cta-light);
+}
+
+/* ============================================================================
+   Loading Overlay
+   ========================================================================== */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-toast);
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  color: #fff;
+}
+
+.loading-spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid rgba(255,255,255,0.2);
+  border-top-color: var(--kiosk-cta);
+  border-radius: 50%;
+  animation: spinLoader 0.8s linear infinite;
+}
+
+.loading-overlay p {
+  font-size: var(--kiosk-font-lg);
+  font-weight: 600;
+}
+
+/* ============================================================================
+   Toast Notifications
+   ========================================================================== */
+.toast-container {
+  position: fixed;
+  top: 8rem;
+  right: 1.5rem;
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  min-width: 300px;
+  max-width: 450px;
+  padding: 1rem 1.5rem;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  border-left: 5px solid var(--info);
+  animation: slideInRight var(--dur-mid) var(--ease-out);
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.toast.success { border-left-color: var(--success); }
+.toast.error { border-left-color: var(--danger); }
+.toast.warning { border-left-color: var(--warning); }
+
+.toast-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+}
+
+.toast-content {
+  flex: 1;
+}
+
+.toast-title {
+  font-family: 'Figtree', sans-serif;
+  font-weight: 800;
+  font-size: var(--kiosk-font-base);
+  color: var(--text-main);
+  margin-bottom: 0.25rem;
+}
+
+.toast-message {
+  font-size: var(--kiosk-font-base);
+  color: var(--text-muted);
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ============================================================================
+   High Contrast Mode
+   ========================================================================== */
+body.high-contrast {
+  --bg-app: #000;
+  --card-bg: #000;
+  --text-main: #fff;
+  --text-muted: #ccc;
+  --border-color: #fff;
+  --border-strong: #fff;
+  --primary: #fff;
+  --primary-hover: #ccc;
+  --primary-light: #333;
+  --saarthi-saffron: #ff0;
+  --saarthi-saffron-hover: #cc0;
+  --cta: var(--saarthi-saffron);
+  --cta-hover: var(--saarthi-saffron-hover);
+  --cta-light: #030;
+}
+
+body.high-contrast .btn-primary {
+  background: #0f0;
+  color: #000;
+  border: 2px solid #0f0;
+}
+
+body.high-contrast .btn-outline {
+  background: #000;
+  color: #fff;
+  border: 2px solid #fff;
+}
+
+body.high-contrast .kiosk-header {
+  background: #000;
+  border-bottom: 2px solid #fff;
+}
+
+body.high-contrast .kiosk-card {
+  border: 2px solid #fff;
+}
+
+body.high-contrast .language-card,
+body.high-contrast .visit-type-card,
+body.high-contrast .doctor-card-kiosk,
+body.high-contrast .checkin-method-card,
+body.high-contrast .specialty-chip,
+body.high-contrast .queue-filter-tab {
+  border: 2px solid #fff;
+}
+
+body.high-contrast .language-card.selected,
+body.high-contrast .visit-type-card.selected,
+body.high-contrast .doctor-card-kiosk.selected,
+body.high-contrast .checkin-method-card.active,
+body.high-contrast .specialty-chip.active,
+body.high-contrast .queue-filter-tab.active {
+  background: #fff;
+  color: #000;
+  border-color: #fff;
+}
+
+body.high-contrast .phone-input-group .country-code {
+  background: #333;
+  color: #fff;
+  border-color: #fff;
+}
+
+body.high-contrast .phone-input-group input,
+body.high-contrast .form-input,
+body.high-contrast .form-select,
+body.high-contrast .form-textarea {
+  background: #000;
+  color: #fff;
+  border-color: #fff;
+}
+
+body.high-contrast .queue-doctor-header {
+  background: #000;
+}
+
+body.high-contrast .queue-patient-item.current {
+  background: #030;
+  border-color: #0f0;
+}
+
+body.high-contrast .success-card .checkmark-circle {
+  background: #0f0;
+}
+
+body.high-contrast .queue-position-display {
+  background: #000;
+}
+
+/* ============================================================================
+   Large Text Mode
+   ========================================================================== */
+body.large-text {
+  --kiosk-font-base: 1.375rem;
+  --kiosk-font-lg: 1.625rem;
+  --kiosk-font-xl: 2.125rem;
+  --kiosk-font-xxl: 3rem;
+  --kiosk-touch-target: 72px;
+  --kiosk-touch-target-lg: 90px;
+  --kiosk-card-padding: 3rem;
+}
+
+/* ============================================================================
+   Reduced Motion
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .kiosk-step,
+  .language-card,
+  .visit-type-card,
+  .doctor-card-kiosk,
+  .checkin-method-card,
+  .specialty-chip,
+  .queue-filter-tab,
+  .toast,
+  .checkmark-circle,
+  .checkmark-path {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ============================================================================
+   Responsive Adjustments
+   ========================================================================== */
+@media (max-width: 600px) {
+  .kiosk-header {
+    padding: 0.75rem 1rem;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .kiosk-brand h1 {
+    font-size: var(--kiosk-font-lg);
+  }
+
+  .kiosk-main {
+    padding: 5.5rem 1rem 7.5rem;
+  }
+
+  .kiosk-card {
+    padding: 1.5rem;
+  }
+
+  .checkin-methods {
+    grid-template-columns: 1fr;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .kiosk-footer {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .footer-info {
+    justify-content: center;
+  }
+
+  .toast-container {
+    left: 1rem;
+    right: 1rem;
+    top: 7rem;
+  }
+
+  .toast {
+    min-width: auto;
+  }
+}
+
+@media (max-width: 400px) {
+  .doctor-meta {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .queue-patient-right {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+  }
+
+  .queue-position-display .position-number {
+    font-size: 3rem;
+  }
+}
+
+/* ============================================================================
+   Print Styles (for receipt printing)
+   ========================================================================== */
+@media print {
+  .kiosk-header,
+  .kiosk-footer,
+  .kiosk-footer-actions,
+  .accessibility-controls,
+  .loading-overlay,
+  .toast-container {
+    display: none !important;
+  }
+
+  .kiosk-main {
+    padding: 0;
+  }
+
+  .kiosk-card {
+    box-shadow: none;
+    border: 1px solid #000;
+  }
+
+  .success-card {
+    page-break-inside: avoid;
+  }
+}
+.kiosk-logo-icon { overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.kiosk-logo-icon img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }

@@ -1,0 +1,35 @@
+/* Swasthya Saarthi Doctor Portal Styles */
+
+.doc-badge-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.queue-control-hero {
+  background: var(--primary-gradient);
+  color: #ffffff;
+  border-radius: var(--radius-lg);
+  padding: 2rem 2.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-lg);
+}
+
+.live-pill {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  background: rgba(239, 68, 68, 0.25);
+  color: #ffffff;
+  padding: 0.2rem 0.65rem;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.queue-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}

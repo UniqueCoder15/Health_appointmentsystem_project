@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Swasthya Saarthi Doctor Portal — Live Queue & Consultation Manager</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/doctor/styles.css">
+  <script src="/motion/motion.min.js"></script>
+</head>
+<body>
+
+  <!-- Top Global Header / Navigation Bar -->
+  <header class="mc-header">
+    <a href="/patient" class="mc-logo">
+      <div class="mc-logo-icon"><img src="/images/logo.jpg" alt="Swasthya Saarthi Logo"></div>
+      <span>Swasthya Saarthi Doctor</span>
+    </a>
+
+    <div style="display: flex; align-items: center; gap: 1.25rem;">
+      <!-- Role Switcher Pill -->
+      <div class="role-switcher-container">
+        <a href="/patient" class="role-tab">Patient</a>
+        <a href="/doctor" class="role-tab active">Doctor</a>
+        <a href="/admin" class="role-tab">Admin</a>
+      </div>
+
+      <div id="doc-auth-badge" style="display: flex; align-items: center; gap: 0.75rem;">
+        <div class="user-avatar-circle" id="doc-avatar">AS</div>
+        <span class="user-name-text" id="doc-name-text">Dr. Ananya Sharma</span>
+        <button class="btn btn-outline btn-sm" onclick="logoutDoctor()">Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- DOCTOR DASHBOARD LAYOUT -->
+  <div class="dash-layout">
+    <!-- Sidebar -->
+    <aside class="dash-sidebar">
+      <div class="dash-sidebar-header">
+        <div class="doc-badge-card">
+          <div class="user-avatar-circle" style="width: 48px; height: 48px; font-size: 1.1rem;">AS</div>
+          <div>
+            <h4 id="sidebar-doc-name">Dr. Ananya Sharma</h4>
+            <div style="font-size: 0.8rem; color: #64748b;" id="sidebar-doc-spec">Cardiologist</div>
+          </div>
+        </div>
+      </div>
+
+      <nav class="dash-sidebar-nav">
+        <a href="#" class="nav-item active" onclick="switchDocTab('doc-queue')">
+          <span class="nav-icon">📋</span> Today's Queue
+        </a>
+        <a href="#" class="nav-item" onclick="switchDocTab('doc-patients')">
+          <span class="nav-icon">👥</span> Patient Directory
+        </a>
+        <a href="#" class="nav-item" onclick="switchDocTab('doc-schedule')">
+          <span class="nav-icon">⚙️</span> Working Hours & Days
+        </a>
+      </nav>
+
+      <div class="dash-sidebar-footer">
+        <a href="#" class="nav-item" onclick="logoutDoctor()">
+          <span class="nav-icon">🚪</span> Log out
+        </a>
+      </div>
+    </aside>
+
+    <!-- Main Doctor Content Area -->
+    <main class="dash-main-content">
+      <!-- Queue Management Tab -->
+      <div id="tab-doc-queue" class="dash-tab-content active">
+        <!-- Live Consultation Control Header -->
+        <div class="queue-control-hero">
+          <div>
+            <div class="live-pill">🔴 CLINIC QUEUE ACTIVE</div>
+            <h2 style="color: #ffffff; margin-top: 0.25rem;">Now Consulting: <span id="current-patient-name">Aarav Mehta</span></h2>
+            <div style="font-size: 0.9rem; opacity: 0.9;" id="current-patient-sub">Appointment Time: 2:30 PM &bull; Queue #3</div>
+          </div>
+          
+          <div class="queue-action-buttons">
+            <button class="btn btn-outline" onclick="advanceQueueStatus('in-consultation')">▶️ Call Next Patient</button>
+            <button class="btn btn-primary" onclick="openPrescriptionModal()">📝 Write Notes & Complete</button>
+          </div>
+        </div>
+
+        <!-- Today's Patients Queue Table -->
+        <div class="recent-appts-section" style="margin-top: 1.5rem;">
+          <div class="section-title-bar">
+            <h3>Today's Patient Schedule</h3>
+            <span class="badge badge-waiting" id="doc-queue-count-badge">3 Patients Waiting</span>
+          </div>
+
+          <div class="appts-list-container" id="doc-queue-list">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Patient Directory Tab -->
+      <div id="tab-doc-patients" class="dash-tab-content" style="display: none;">
+        <h2>Patient Directory & Medical Records</h2>
+        <div class="recent-appts-section" style="margin-top: 1.5rem;" id="doc-patients-history-list">
+          <!-- History list -->
+        </div>
+      </div>
+
+      <!-- Working Hours & Schedule Tab -->
+      <div id="tab-doc-schedule" class="dash-tab-content" style="display: none;">
+        <h2>Doctor Availability & Hours Settings</h2>
+        <div class="profile-card-container" style="margin-top: 1.5rem; background: #ffffff; padding: 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0;">
+          <div class="form-group">
+            <label class="form-label">Available Hours Start</label>
+            <input type="time" class="form-input" id="sched-start" value="08:30">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Available Hours End</label>
+            <input type="time" class="form-input" id="sched-end" value="17:00">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Consultation Fee (₹)</label>
+            <input type="number" class="form-input" id="sched-fee" value="800">
+          </div>
+          <button class="btn btn-primary" onclick="saveDoctorSchedule()">Save Schedule Settings</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- CONSULTATION & PRESCRIPTION MODAL -->
+  <div class="modal-overlay" id="rx-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Consultation Notes & Digital Prescription</h3>
+        <button class="modal-close" onclick="closePrescriptionModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="rx-form">
+          <input type="hidden" id="rx-appt-id">
+          <div class="form-group">
+            <label class="form-label">Patient Name</label>
+            <input type="text" class="form-input" id="rx-patient-name" value="Aarav Mehta" readonly>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Diagnosis</label>
+            <input type="text" class="form-input" id="rx-diagnosis" placeholder="e.g. Mild Hypertension, Routine ECG normal">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Digital Prescription</label>
+            <textarea class="form-textarea" id="rx-prescription" rows="3" placeholder="e.g. Amlodipine 5mg once daily after meals for 30 days. Follow up in 4 weeks."></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Clinical Notes</label>
+            <textarea class="form-textarea" id="rx-notes" rows="2" placeholder="Internal clinical observations..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closePrescriptionModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveConsultationNotes()">Save & Complete Patient Consultation &rarr;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DOCTOR LOGIN MODAL -->
+  <div class="modal-overlay" id="doc-login-modal">
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3>Doctor Portal Sign In</h3>
+      </div>
+      <div class="modal-body">
+        <form id="doc-login-form" onsubmit="handleDoctorLogin(event)">
+          <div class="form-group">
+            <label class="form-label">Doctor Email</label>
+            <input type="email" class="form-input" id="doc-login-email" value="dr.sharma@clinic.com" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-input" id="doc-login-password" value="doctor123" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In to Clinic Queue</button>
+        </form>
+
+        <div class="demo-shortcuts-box" style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
+          <div style="font-size: 0.8rem; font-weight: 700; color: #64748b; margin-bottom: 0.75rem;">DEMO 1-CLICK DOCTOR ACCESS</div>
+          <button class="btn btn-outline btn-sm" style="width: 100%; text-align: left;" onclick="quickLoginDoc('dr.sharma@clinic.com', 'doctor123')">
+            👨‍⚕️ Sign In as Dr. Ananya Sharma (Cardiologist)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/doctor/app.js"></script>
+</body>
+</html>

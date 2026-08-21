@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Swasthya Saarthi — Smart Healthcare, Without the Waiting</title>
+  <link rel="stylesheet" href="/css/common.css">
+  <link rel="stylesheet" href="/patient/styles.css">
+  <script src="/motion/motion.min.js"></script>
+</head>
+<body>
+
+  <!-- Top Global Header / Navigation Bar -->
+  <header class="mc-header">
+    <a href="#" class="mc-logo" onclick="showLandingView()">
+      <div class="mc-logo-icon"><img src="/images/logo.jpg" alt="Swasthya Saarthi Logo"></div>
+      <span>Swasthya Saarthi</span>
+    </a>
+
+    <ul class="mc-nav-links">
+      <li><a href="#doctors" onclick="navigateToSection('doctors-section')">Doctors</a></li>
+      <li><a href="#specialties" onclick="navigateToSection('specialties-section')">Specialties</a></li>
+      <li><a href="#how-it-works" onclick="navigateToSection('how-section')">How it works</a></li>
+      <li><a href="#why-us" onclick="navigateToSection('why-section')">About</a></li>
+    </ul>
+
+    <div style="display: flex; align-items: center; gap: 1.25rem;">
+      <!-- Role Switcher Pill -->
+      <div class="role-switcher-container">
+        <a href="/patient" class="role-tab active">Patient</a>
+        <a href="/doctor" class="role-tab">Doctor</a>
+        <a href="/admin" class="role-tab">Admin</a>
+      </div>
+
+      <div id="nav-auth-buttons">
+        <button class="btn btn-outline btn-sm" onclick="openLoginModal()">Login</button>
+        <button class="btn btn-primary btn-sm" onclick="openBookingModal()">Book Appointment</button>
+      </div>
+
+      <div id="nav-user-badge" style="display: none; align-items: center; gap: 0.75rem;">
+        <button class="btn btn-primary btn-sm" onclick="showDashboardView()">My Dashboard</button>
+        <div class="user-avatar-circle" id="nav-avatar" onclick="showDashboardView()">AJ</div>
+        <button class="btn btn-outline btn-sm" onclick="logoutPatient()">Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- LANDING PAGE VIEW -->
+  <main id="landing-view">
+    <!-- Hero Section -->
+    <section class="hero-section">
+      <div class="hero-container">
+        <div class="hero-text-content">
+          <div class="hero-badge">
+            <span class="badge-pulse">✨</span> Trusted by 50,000+ patients
+          </div>
+          <h1 class="hero-title">
+            SwasthyaSaarthi,<br>
+            <span class="highlight-primary">without the waiting.</span>
+          </h1>
+          <p class="hero-tagline">Right patient. Right doctor. Right time. Smart Healthcare.</p>
+          <p class="hero-subtitle">
+            Find top specialists, book appointments in minutes, and track your queue in real time. Your care, on your schedule.
+          </p>
+          <div class="hero-actions">
+            <button class="btn btn-cta btn-lg" onclick="openBookingModal()">
+              <span class="btn-icon">🔍</span> Find a Doctor &rarr;
+            </button>
+            <button class="btn btn-outline btn-lg" onclick="navigateToSection('how-section')">How it works</button>
+          </div>
+
+          <!-- Trust Indicators -->
+          <div class="hero-trust-indicators">
+            <div class="trust-item">
+              <span class="trust-icon" aria-hidden="true">🏥</span>
+              <span>850+ Verified Specialists</span>
+            </div>
+            <div class="trust-divider" aria-hidden="true"></div>
+            <div class="trust-item">
+              <span class="trust-icon" aria-hidden="true">⚡</span>
+              <span>Real-time Queue Tracking</span>
+            </div>
+            <div class="trust-divider" aria-hidden="true"></div>
+            <div class="trust-item">
+              <span class="trust-icon" aria-hidden="true">🛡️</span>
+              <span>Clinical Priority Engine</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Dashboard Preview Card Mockup -->
+        <div class="hero-mockup-wrapper">
+          <div class="mockup-window" id="hero-mockup-window">
+            <div class="mockup-header">
+              <div class="window-dots">
+                <span class="dot dot-close"></span>
+                <span class="dot dot-minimize"></span>
+                <span class="dot dot-maximize"></span>
+              </div>
+              <div class="mockup-url">saarthi.health/dashboard</div>
+            </div>
+            <div class="mockup-body">
+              <div class="mockup-greeting">Good morning, <span class="highlight-guide">Aarav</span></div>
+
+              <!-- Priority Queue Visualization Preview -->
+              <div class="queue-viz-preview" id="queue-viz-preview">
+                <div class="queue-viz-header">
+                  <span class="queue-viz-title">Today's Priority Queue</span>
+                  <span class="live-pulse-badge" aria-live="polite">
+                    <span class="live-pulse-dot"></span> LIVE
+                  </span>
+                </div>
+
+                <!-- Priority Levels Visual -->
+                <div class="priority-levels-bar" role="list" aria-label="Clinical priority levels">
+                  <div class="priority-level-item critical" role="listitem" title="Critical — Life-threatening emergencies">
+                    <span class="priority-dot" aria-hidden="true"></span>
+                    <span class="priority-label">Critical</span>
+                    <span class="priority-count">2</span>
+                  </div>
+                  <div class="priority-level-item urgent" role="listitem" title="Urgent — Needs attention within 15-30 min">
+                    <span class="priority-dot" aria-hidden="true"></span>
+                    <span class="priority-label">Urgent</span>
+                    <span class="priority-count">3</span>
+                  </div>
+                  <div class="priority-level-item high" role="listitem" title="High — Acute conditions requiring evaluation">
+                    <span class="priority-dot" aria-hidden="true"></span>
+                    <span class="priority-label">High</span>
+                    <span class="priority-count">4</span>
+                  </div>
+                  <div class="priority-level-item normal" role="listitem" title="Normal — Standard appointments">
+                    <span class="priority-dot" aria-hidden="true"></span>
+                    <span class="priority-label">Normal</span>
+                    <span class="priority-count">5</span>
+                  </div>
+                  <div class="priority-level-item low" role="listitem" title="Low — Routine follow-ups">
+                    <span class="priority-dot" aria-hidden="true"></span>
+                    <span class="priority-label">Low</span>
+                    <span class="priority-count">1</span>
+                  </div>
+                  <div class="priority-level-item routine" role="listitem" title="Routine — Preventive care">
+                    <span class="priority-dot" aria-hidden="true"></span>
+                    <span class="priority-label">Routine</span>
+                    <span class="priority-count">2</span>
+                  </div>
+                </div>
+
+                <!-- Guide Position Indicator (Saarthi concept) -->
+                <div class="guide-position-indicator" aria-label="Your guide position in queue">
+                  <div class="guide-path-line" role="img" aria-label="Guided path from Critical to your position"></div>
+                  <div class="guide-marker" role="img" aria-label="Your Saarthi guide position">
+                    <span class="guide-icon" aria-hidden="true">⬢</span>
+                    <span class="guide-tooltip">Your Guide</span>
+                  </div>
+                </div>
+
+                <!-- Next Appointment Card Preview -->
+                <div class="next-appt-preview-card">
+                  <div class="appt-preview-top">
+                    <div class="doc-preview-info">
+                      <div class="doc-avatar-badge">AS</div>
+                      <div>
+                        <div class="doc-preview-name">Dr. Ananya Sharma</div>
+                        <div class="doc-preview-meta">Today 2:30 PM &bull; Cardiology</div>
+                      </div>
+                    </div>
+                    <div class="queue-status-box priority-normal">
+                      <div class="queue-label">IN QUEUE</div>
+                      <div class="queue-num">3rd</div>
+                      <div class="queue-wait">~18 min wait</div>
+                    </div>
+                  </div>
+                  <button class="btn btn-sm btn-track" onclick="openLiveQueueTrackerModal(1)">Track Queue</button>
+                </div>
+
+                <!-- Quick Metrics Grid -->
+                <div class="mini-metrics-grid">
+                  <div class="mini-stat-card">
+                    <div class="mini-stat-val">2</div>
+                    <div class="mini-stat-lbl">Upcoming</div>
+                  </div>
+                  <div class="mini-stat-card">
+                    <div class="mini-stat-val">14</div>
+                    <div class="mini-stat-lbl">Completed</div>
+                  </div>
+                  <div class="mini-stat-card">
+                    <div class="mini-stat-val">1</div>
+                    <div class="mini-stat-lbl">Cancelled</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Floating Decorative Elements -->
+          <div class="hero-floating-elements" aria-hidden="true">
+            <div class="float-element float-1" style="--delay: 0s;"></div>
+            <div class="float-element float-2" style="--delay: 1.5s;"></div>
+            <div class="float-element float-3" style="--delay: 3s;"></div>
+            <div class="float-element float-4" style="--delay: 4.5s;"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Stats Bar -->
+    <section class="stats-bar-section">
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-num">850+</div>
+          <div class="stat-desc">Verified Specialists</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-num">40+</div>
+          <div class="stat-desc">Specialties</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-num">120K+</div>
+          <div class="stat-desc">Appointments Booked</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-num">98%</div>
+          <div class="stat-desc">Patient Satisfaction</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="how-section" id="how-section">
+      <div class="section-container">
+        <div class="section-header">
+          <div class="section-tag">HOW IT WORKS</div>
+          <h2>Book & track care in 4 simple steps</h2>
+        </div>
+        <div class="steps-grid">
+          <div class="step-card">
+            <div class="step-num">01</div>
+            <div class="step-icon">🔍</div>
+            <h3>Find a Doctor</h3>
+            <p>Search 850+ verified specialists by specialty, location, or condition.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">02</div>
+            <div class="step-icon">📅</div>
+            <h3>Book Appointment</h3>
+            <p>Choose your slot and confirm in under 2 minutes.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">03</div>
+            <div class="step-icon">📋</div>
+            <h3>Track Your Queue</h3>
+            <p>Real-time queue updates so you never have to sit and wonder.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-num">04</div>
+            <div class="step-icon">🩺</div>
+            <h3>Meet Your Doctor</h3>
+            <p>Show up on time and receive the care you deserve.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Browse By Specialty Section -->
+    <section class="specialties-section" id="specialties-section">
+      <div class="section-container">
+        <div class="section-header">
+          <div class="section-tag">SPECIALTIES</div>
+          <h2>Browse by specialty</h2>
+        </div>
+        <div class="specialty-grid" id="landing-specialty-grid">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Featured Doctors Section -->
+    <section class="doctors-section" id="doctors-section">
+      <div class="section-container">
+        <div class="section-header">
+          <div class="section-tag">OUR SPECIALISTS</div>
+          <h2>Top rated doctors available today</h2>
+        </div>
+        <div class="doctor-cards-grid" id="landing-doctors-grid">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Why Choose Us Section -->
+    <section class="why-section" id="why-section">
+      <div class="section-container why-container">
+        <div class="why-left">
+          <div class="section-tag">WHY MEDICARE</div>
+          <h2>Why patients choose us</h2>
+          
+          <div class="why-features-list">
+            <div class="why-feature-item">
+              <div class="why-feat-icon">🛡️</div>
+              <div>
+                <h4>Verified Doctors</h4>
+                <p>Every doctor on Swasthya Saarthi is board-certified and background-checked.</p>
+              </div>
+            </div>
+            <div class="why-feature-item">
+              <div class="why-feat-icon">⚡</div>
+              <div>
+                <h4>Real-time Queue</h4>
+                <p>Know exactly where you are in line. No more guessing or waiting blindly.</p>
+              </div>
+            </div>
+            <div class="why-feature-item">
+              <div class="why-feat-icon">💙</div>
+              <div>
+                <h4>Patient-first care</h4>
+                <p>We build tools that center the patient experience above everything else.</p>
+              </div>
+            </div>
+            <div class="why-feature-item">
+              <div class="why-feat-icon">✅</div>
+              <div>
+                <h4>Instant Confirmation</h4>
+                <p>Appointments confirmed in seconds, with reminders via SMS and email.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="why-right-metrics">
+          <div class="why-metric-card blue-bg">
+            <div class="metric-big">67%</div>
+            <div class="metric-lbl">Average wait time reduced</div>
+          </div>
+          <div class="why-metric-card">
+            <div class="metric-big">240+</div>
+            <div class="metric-lbl">Doctors available today</div>
+          </div>
+          <div class="why-metric-card">
+            <div class="metric-big">98%</div>
+            <div class="metric-lbl">Patient satisfaction rate</div>
+          </div>
+          <div class="why-metric-card green-bg">
+            <div class="metric-big">&lt; 3%</div>
+            <div class="metric-lbl">No-show rate clinic-wide</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA Banner -->
+    <section class="cta-banner-section">
+      <div class="cta-banner-card">
+        <h2>Ready to take control of your health?</h2>
+        <p>Join 50,000+ patients who book smarter with Swasthya Saarthi.</p>
+        <div class="cta-banner-buttons">
+          <button class="btn btn-outline btn-lg" onclick="openLoginModal()">Create free account</button>
+          <button class="btn btn-primary btn-lg" onclick="openBookingModal()">Browse doctors &rarr;</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="mc-footer">
+      <div class="footer-container">
+        <div class="footer-col brand-col">
+          <div class="mc-logo">
+            <div class="mc-logo-icon"><img src="/images/logo.jpg" alt="Swasthya Saarthi Logo"></div>
+            <span>Swasthya Saarthi</span>
+          </div>
+          <p>Healthcare, without the waiting. Find specialists, book fast, track in real time.</p>
+        </div>
+        <div class="footer-col">
+          <h4>PRODUCT</h4>
+          <ul>
+            <li><a href="#" onclick="openBookingModal()">Find a Doctor</a></li>
+            <li><a href="#" onclick="openBookingModal()">Book Appointment</a></li>
+            <li><a href="#" onclick="openLiveQueueTrackerModal(1)">Queue Tracking</a></li>
+            <li><a href="#" onclick="showDashboardView()">Patient Portal</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>COMPANY</h4>
+          <ul>
+            <li><a href="#">About</a></li>
+            <li><a href="#">Careers</a></li>
+            <li><a href="#">Press</a></li>
+            <li><a href="#">Contact</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h4>LEGAL</h4>
+          <ul>
+            <li><a href="#">Privacy Policy</a></li>
+            <li><a href="#">Terms of Use</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>&copy; 2026 Swasthya Saarthi, Inc. All rights reserved.</span>
+        <span>Made with care for patients everywhere.</span>
+      </div>
+    </footer>
+  </main>
+
+  <!-- LOGGED-IN PATIENT DASHBOARD VIEW -->
+  <div id="dashboard-view" style="display: none;" class="dash-layout">
+    <!-- Sidebar -->
+    <aside class="dash-sidebar">
+      <div class="dash-sidebar-header">
+        <div class="mc-logo">
+          <div class="mc-logo-icon"><img src="/images/logo.jpg" alt="Swasthya Saarthi Logo"></div>
+          <span>Swasthya Saarthi</span>
+        </div>
+      </div>
+
+      <nav class="dash-sidebar-nav">
+        <a href="#" class="nav-item active" onclick="switchDashTab('dash-main')">
+          <span class="nav-icon">📊</span> Dashboard
+        </a>
+        <a href="#" class="nav-item" onclick="openBookingModal()">
+          <span class="nav-icon">🔍</span> Find a Doctor
+        </a>
+        <a href="#" class="nav-item" onclick="openBookingModal()">
+          <span class="nav-icon">📅</span> Book Appointment
+        </a>
+        <a href="#" class="nav-item" onclick="switchDashTab('dash-appointments')">
+          <span class="nav-icon">📋</span> My Appointments
+        </a>
+        <a href="#" class="nav-item" onclick="openLiveQueueTrackerModal()">
+          <span class="nav-icon">⏱️</span> Queue Tracking
+        </a>
+        <a href="#" class="nav-item" onclick="switchDashTab('dash-notifications')">
+          <span class="nav-icon">🔔</span> Notifications
+        </a>
+        <a href="#" class="nav-item" onclick="switchDashTab('dash-profile')">
+          <span class="nav-icon">👤</span> Profile
+        </a>
+      </nav>
+
+      <div class="dash-sidebar-footer">
+        <a href="#" class="nav-item" onclick="logoutPatient()">
+          <span class="nav-icon">🚪</span> Log out
+        </a>
+      </div>
+    </aside>
+
+    <!-- Dashboard Main Area -->
+    <main class="dash-main-content">
+      <!-- Top Search & User Header Bar -->
+      <div class="dash-topbar">
+        <div class="dash-search-box">
+          <span>🔍</span>
+          <input type="text" placeholder="Search appointments, doctors..." id="dash-search-input">
+        </div>
+        <div class="dash-topbar-actions">
+          <button class="icon-bell-btn">🔔<span class="bell-dot"></span></button>
+          <div class="user-profile-badge">
+            <div class="user-avatar-circle" id="dash-user-avatar">AM</div>
+            <span class="user-name-text" id="dash-user-name">Aarav M.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Dashboard Tab -->
+      <div id="tab-dash-main" class="dash-tab-content active">
+        <!-- NEXT APPOINTMENT ROYAL BLUE HERO CARD -->
+        <div class="hero-appt-card" id="hero-appt-container">
+          <div class="hero-appt-content">
+            <div class="hero-appt-tag">NEXT APPOINTMENT</div>
+            <div class="hero-appt-doctor-row">
+              <div class="hero-doc-avatar" id="hero-doc-avatar">AS</div>
+              <div class="hero-doc-details">
+                <h2 id="hero-doc-name">Dr. Ananya Sharma</h2>
+                <div class="hero-doc-specialty" id="hero-doc-spec">Cardiologist</div>
+                <div class="hero-appt-meta">
+                  <span>📅 Today</span>
+                  <span>⏰ <span id="hero-doc-time">2:30 PM</span></span>
+                  <span>📍 <span id="hero-doc-loc">AIIMS New Delhi</span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="hero-queue-box">
+            <div class="queue-pill-header">IN QUEUE</div>
+            <div class="queue-pill-num" id="hero-queue-pos">3rd</div>
+            <div class="queue-pill-wait" id="hero-queue-wait">~18 min wait</div>
+            <div class="queue-card-actions">
+              <button class="btn btn-outline btn-sm track-queue-btn" onclick="openLiveQueueTrackerModal()">⏱️ Track Queue</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Need New Appointment Promo Box -->
+        <div class="new-appt-promo-box">
+          <div>
+            <h3>Need a new appointment?</h3>
+            <p>Choose a specialist and book in under 2 minutes.</p>
+          </div>
+          <button class="btn btn-primary" onclick="openBookingModal()">+ Book Appointment</button>
+        </div>
+
+        <!-- Stat Cards Row -->
+        <div class="dash-stats-row">
+          <div class="dash-stat-card">
+            <div class="stat-icon-wrapper blue">📅</div>
+            <div>
+              <div class="dash-stat-num" id="stat-upcoming-cnt">2</div>
+              <div class="dash-stat-lbl">Upcoming</div>
+            </div>
+          </div>
+          <div class="dash-stat-card">
+            <div class="stat-icon-wrapper green">✅</div>
+            <div>
+              <div class="dash-stat-num-row">
+                <span class="dash-stat-num" id="stat-completed-cnt">14</span>
+                <span class="badge-growth-pill">+3 this month</span>
+              </div>
+              <div class="dash-stat-lbl">Completed</div>
+            </div>
+          </div>
+          <div class="dash-stat-card">
+            <div class="stat-icon-wrapper red">❌</div>
+            <div>
+              <div class="dash-stat-num" id="stat-cancelled-cnt">1</div>
+              <div class="dash-stat-lbl">Cancelled</div>
+            </div>
+          </div>
+          <div class="dash-stat-card">
+            <div class="stat-icon-wrapper orange">⏱️</div>
+            <div>
+              <div class="dash-stat-num">22 min</div>
+              <div class="dash-stat-lbl">Avg Wait Time</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Appointments Table Section -->
+        <div class="recent-appts-section">
+          <div class="section-title-bar">
+            <h3>Recent Appointments</h3>
+            <a href="#" class="view-all-link" onclick="switchDashTab('dash-appointments')">View all &rarr;</a>
+          </div>
+
+          <div class="appts-list-container" id="patient-appts-list">
+            <!-- Appt Rows populated via JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- My Appointments Tab -->
+      <div id="tab-dash-appointments" class="dash-tab-content" style="display: none;">
+        <div class="section-title-bar">
+          <h2>My Appointments</h2>
+          <button class="btn btn-primary btn-sm" onclick="openBookingModal()">+ Book Appointment</button>
+        </div>
+
+        <div class="filter-tabs-row">
+          <button class="filter-btn active" onclick="filterApptList('all')">All Appointments</button>
+          <button class="filter-btn" onclick="filterApptList('scheduled')">Scheduled</button>
+          <button class="filter-btn" onclick="filterApptList('completed')">Completed</button>
+          <button class="filter-btn" onclick="filterApptList('cancelled')">Cancelled</button>
+        </div>
+
+        <div class="appts-list-container" id="all-patient-appts-list">
+          <!-- Populated via JS -->
+        </div>
+      </div>
+
+      <!-- Notifications Tab -->
+      <div id="tab-dash-notifications" class="dash-tab-content" style="display: none;">
+        <h2>Notifications</h2>
+        <div class="notifications-list" style="margin-top: 1.5rem;">
+          <div class="notification-item">
+            <div class="notif-icon green">✅</div>
+            <div>
+              <h4>Appointment Confirmed with Dr. Sarah Chen</h4>
+              <p>Today at 2:30 PM &bull; Cardiology Department</p>
+              <span class="notif-time">10 mins ago</span>
+            </div>
+          </div>
+          <div class="notification-item">
+            <div class="notif-icon blue">⏱️</div>
+            <div>
+              <h4>Queue Position Update</h4>
+              <p>You are now 3rd in line for Dr. Sarah Chen (~18 min wait)</p>
+              <span class="notif-time">15 mins ago</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile Tab -->
+      <div id="tab-dash-profile" class="dash-tab-content" style="display: none;">
+        <h2>Patient Profile</h2>
+        <div class="profile-card-container" style="margin-top: 1.5rem;">
+          <div class="form-group">
+            <label class="form-label">Full Name</label>
+            <input type="text" class="form-input" id="profile-name" value="Aarav Mehta">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" class="form-input" id="profile-email" value="patient1@email.com" readonly>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone Number</label>
+            <input type="text" class="form-input" id="profile-phone" value="+91-98765-43210">
+          </div>
+          <button class="btn btn-primary" onclick="alert('Profile updated successfully!')">Save Changes</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- BOOKING MODAL -->
+  <div class="modal-overlay" id="booking-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Book Appointment</h3>
+        <button class="modal-close" onclick="closeBookingModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="booking-form">
+          <div class="form-group">
+            <label class="form-label">Select Specialty</label>
+            <select class="form-select" id="book-specialty-select" onchange="onSpecialtySelectChange()">
+              <option value="">All Specialties</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Select Doctor</label>
+            <select class="form-select" id="book-doctor-select" onchange="onDoctorSelectChange()">
+              <option value="">Choose a doctor...</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Appointment Date</label>
+            <input type="date" class="form-input" id="book-date-input" onchange="onBookingDateChange()">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Priority Level</label>
+            <select class="form-select" id="book-priority-select">
+              <option value="3">Normal — Standard appointment</option>
+              <option value="2">High — Urgent concern, needs attention soon</option>
+              <option value="1">Critical — Emergency/acute symptoms</option>
+              <option value="4">Low — Routine follow-up, non-urgent</option>
+              <option value="5">Routine — Annual checkup, preventive care</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Available Slots</label>
+            <div class="slots-grid-selector" id="book-slots-grid">
+              <div class="slots-empty-lbl">Please select a doctor and date first</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Reason for Visit / Symptoms</label>
+            <textarea class="form-textarea" id="book-notes-input" rows="3" placeholder="Describe symptoms or routine checkup reason..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeBookingModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitAppointmentBooking()">Confirm Booking &rarr;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE QUEUE TRACKER MODAL -->
+  <div class="modal-overlay" id="queue-modal">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3>Live Queue Tracker</h3>
+        <button class="modal-close" onclick="closeQueueModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="queue-modal-content">
+          <div class="queue-live-badge"><span class="live-pulse-dot"></span> LIVE QUEUE STATUS</div>
+          
+          <div class="queue-big-number-display">
+            <div class="queue-big-pos" id="qmodal-pos">3rd</div>
+            <div class="queue-big-lbl">Position in Queue</div>
+          </div>
+
+          <div class="queue-progress-bar-wrapper">
+            <div class="queue-progress-bar-fill" style="width: 65%;"></div>
+          </div>
+
+          <div class="queue-details-box">
+            <div class="qdetail-item">
+              <span class="qlbl">Doctor</span>
+              <span class="qval" id="qmodal-doc">Dr. Ananya Sharma</span>
+            </div>
+            <div class="qdetail-item">
+              <span class="qlbl">Specialty</span>
+              <span class="qval" id="qmodal-spec">Cardiology</span>
+            </div>
+            <div class="qdetail-item">
+              <span class="qlbl">Estimated Wait</span>
+              <span class="qval highlight" id="qmodal-wait">~18 minutes</span>
+            </div>
+            <div class="qdetail-item">
+              <span class="qlbl">Patients Ahead</span>
+              <span class="qval">2 patients</span>
+            </div>
+            <div class="qdetail-item">
+              <span class="qlbl">Location</span>
+              <span class="qval" id="qmodal-loc">AIIMS New Delhi (Room 302)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" style="width: 100%;" onclick="closeQueueModal()">Close Tracker</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DEMO LOGIN MODAL -->
+  <div class="modal-overlay" id="login-modal">
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3>Swasthya Saarthi Account Sign In</h3>
+        <button class="modal-close" onclick="closeLoginModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="login-form" onsubmit="handlePatientLogin(event)">
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" class="form-input" id="login-email" value="patient1@email.com" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-input" id="login-password" value="patient123" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
+        </form>
+
+        <div class="demo-shortcuts-box" style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
+          <div style="font-size: 0.8rem; font-weight: 700; color: #64748b; margin-bottom: 0.75rem;">DEMO 1-CLICK QUICK ACCESS</div>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <button class="btn btn-outline btn-sm" style="text-align: left; justify-content: flex-start;" onclick="quickLoginDemo('patient1@email.com', 'patient123')">
+              👤 Login as Patient (Aarav Mehta)
+            </button>
+            <button class="btn btn-outline btn-sm" style="text-align: left; justify-content: flex-start;" onclick="window.location.href='/doctor'">
+              👨‍⚕️ Switch to Doctor Portal (Dr. Ananya Sharma)
+            </button>
+            <button class="btn btn-outline btn-sm" style="text-align: left; justify-content: flex-start;" onclick="window.location.href='/admin'">
+              ⚙️ Switch to Admin Portal
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/patient/app.js"></script>
+</body>
+</html>
