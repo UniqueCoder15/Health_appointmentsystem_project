@@ -4,7 +4,8 @@ const cors = require('cors');
 require('dotenv').config();
 
 // Initialize database
-require('./database/init');
+const { initializeDatabase } = require('./database/init');
+initializeDatabase();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
