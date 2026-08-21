@@ -1,7 +1,9 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 
 const DB_PATH = path.join(__dirname, 'clinic.db');
+const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
 
 // Singleton database connection
 let dbInstance = null;
@@ -9,11 +11,18 @@ let dbInstance = null;
 function getDatabase() {
   if (!dbInstance) {
     dbInstance = new Database(DB_PATH);
+
+    // Enable foreign keys
     dbInstance.pragma('foreign_keys = ON');
-    // Return rows as objects instead of arrays
+
+    // Initialize database tables from schema.sql
+    const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
+    dbInstance.exec(schema);
+
     // Disable safe integers to avoid BigInt serialization issues with JSON
     dbInstance.defaultSafeIntegers(false);
   }
+
   return dbInstance;
 }
 
