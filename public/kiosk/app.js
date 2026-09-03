@@ -171,7 +171,7 @@ function setupEventListeners() {
   });
 
   // Patient form inputs
-  ['patient-name', 'patient-phone', 'patient-age', 'patient-reason'].forEach(id => {
+  ['patient-name', 'patient-phone', 'patient-age', 'patient-reason', 'patient-abha'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener('input', validatePatientForm);
@@ -608,8 +608,22 @@ function validatePatientForm() {
   const phone = document.getElementById('patient-phone')?.value;
   const age = document.getElementById('patient-age')?.value;
   const reason = document.getElementById('patient-reason')?.value.trim();
+  const abha = document.getElementById('patient-abha')?.value.trim();
 
-  const isValid = name && phone && phone.length === 10 && age && age >= 1 && age <= 120 && reason;
+  // Validate ABHA ID if provided (14 digits)
+  const abhaValid = !abha || (abha.length === 14 && /^\d{14}$/.test(abha));
+
+  const isValid = name && phone && phone.length === 10 && age && age >= 1 && age <= 120 && reason && abhaValid;
+
+  // Show/hide ABHA validation error
+  const abhaInput = document.getElementById('patient-abha');
+  if (abha && !abhaValid) {
+    abhaInput.style.borderColor = '#ef4444';
+    abhaInput.setAttribute('aria-invalid', 'true');
+  } else if (abhaInput) {
+    abhaInput.style.borderColor = '';
+    abhaInput.removeAttribute('aria-invalid');
+  }
 
   document.getElementById('submit-walkin-btn').disabled = !isValid;
 }
@@ -620,9 +634,16 @@ async function handleWalkinSubmit() {
   const email = document.getElementById('patient-email').value.trim() || null;
   const reason = document.getElementById('patient-reason').value.trim();
   const priority = parseInt(document.getElementById('patient-priority').value);
+  const abha = document.getElementById('patient-abha').value.trim() || null;
 
   if (!kioskState.selectedDoctor) {
     showToast('Error', 'Please select a doctor first.', 'error');
+    return;
+  }
+
+  // Validate ABHA if provided
+  if (abha && (abha.length !== 14 || !/^\d{14}$/.test(abha))) {
+    showToast('Invalid ABHA ID', 'ABHA ID must be 14 digits.', 'error');
     return;
   }
 
@@ -639,7 +660,8 @@ async function handleWalkinSubmit() {
         doctor_id: kioskState.selectedDoctor,
         notes: reason,
         priority_level: priority,
-        priority_reason: reason
+        priority_reason: reason,
+        abha_id: abha
       })
     });
 
@@ -650,7 +672,12 @@ async function handleWalkinSubmit() {
       showSuccessScreen(data.appointment);
     } else {
       showLoading(false);
-      showToast('Error', data.error || 'Failed to book appointment.', 'error');
+      // Check for suspension error
+      if (data.error && data.error.includes('suspended')) {
+        showToast('Account Suspended', data.error, 'error');
+      } else {
+        showToast('Error', data.error || 'Failed to book appointment.', 'error');
+      }
     }
   } catch (err) {
     showLoading(false);

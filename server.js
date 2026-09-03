@@ -25,6 +25,10 @@ app.use('/api/doctors', require('./routes/doctors'));
 app.use('/api/specialties', require('./routes/specialties'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/kiosk', require('./routes/kiosk'));
+app.use('/api/reports', require('./routes/reports'));
+app.use('/api/symptoms', require('./routes/symptoms'));
+app.use('/api/abuse', require('./routes/abuse'));
+app.use('/api/chatbot', require('./routes/chatbot'));
 
 // Health check
 app.get('/api/health', (req, res) => {

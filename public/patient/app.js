@@ -27,10 +27,18 @@ let state = {
   nextAppointment: null,
   selectedDoctor: null,
   selectedDate: null,
-  selectedSlot: null
+  selectedSlot: null,
+  reports: [],
+  filteredReports: [],
+  currentReportFilter: 'all',
+  symptomSession: null,
+  symptomQuestionIndex: 0,
+  symptomAnswers: {},
+  symptomSessionId: null
 };
 
 let heroEventSource = null;
+let patientEventSource = null;
 
 function startHeroStream() {
   stopHeroStream();
@@ -57,6 +65,66 @@ function stopHeroStream() {
   }
 }
 
+// Patient SSE for real-time notifications (suspension, reports, symptoms, ABHA)
+function startPatientSSE() {
+  stopPatientSSE();
+  if (!state.token || !state.user) return;
+
+  const url = `/api/patient/stream?token=${encodeURIComponent(state.token)}`;
+  patientEventSource = new EventSource(url);
+
+  patientEventSource.addEventListener('patient-update', (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      handlePatientNotification(data);
+    } catch (err) {
+      console.error('Patient SSE parse error:', err);
+    }
+  });
+
+  patientEventSource.onerror = () => {
+    // Auto-reconnect
+  };
+}
+
+function stopPatientSSE() {
+  if (patientEventSource) {
+    patientEventSource.close();
+    patientEventSource = null;
+  }
+}
+
+function handlePatientNotification(data) {
+  console.log('Patient notification:', data);
+
+  switch (data.type) {
+    case 'abha-linked':
+      if (state.user) {
+        state.user.abha_id = data.abhaId;
+        updateABHAUI();
+      }
+      break;
+    case 'user-suspended':
+      showSuspensionBanner(data.suspension);
+      break;
+    case 'user-unsuspended':
+      hideSuspensionBanner();
+      break;
+    case 'report-uploaded':
+      fetchPatientReports();
+      break;
+    case 'report-deleted':
+      fetchPatientReports();
+      break;
+    case 'symptom-assessment-completed':
+      fetchPatientSymptomHistory();
+      break;
+    case 'abuse-flag-raised':
+      showToast('Warning', 'Your account has been flagged for excessive cancellations/no-shows. Please contact admin.', 'warning');
+      break;
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initApp();
 });
@@ -66,12 +134,15 @@ async function initApp() {
   await fetchDoctors();
   renderLandingSpecialties();
   renderLandingDoctors();
-  
+
   if (state.token) {
     await fetchPatientProfile();
     await fetchNextAppointment();
     await fetchPatientAppointments();
+    await fetchPatientReports();
+    await fetchPatientSymptomHistory();
     updateUIState(true);
+    startPatientSSE();
   } else {
     updateUIState(false);
   }
@@ -92,10 +163,172 @@ function updateUIState(isLoggedIn) {
     if (navAvatar) navAvatar.textContent = initials;
     if (dashUserAvatar) dashUserAvatar.textContent = initials;
     if (dashUserName) dashUserName.textContent = state.user.full_name;
+
+    // Update ABHA UI if user has ABHA
+    updateABHAUI();
+
+    // Check for suspension
+    checkSuspensionStatus();
   } else {
     if (authBtns) authBtns.style.display = 'flex';
     if (userBadge) userBadge.style.display = 'none';
   }
+}
+
+function updateABHAUI() {
+  const abhaInput = document.getElementById('profile-abha');
+  const abhaHint = document.getElementById('abha-hint');
+  const abhaStatus = document.getElementById('abha-status');
+
+  if (abhaInput && state.user) {
+    if (state.user.abha_id) {
+      abhaInput.value = state.user.abha_id;
+      abhaHint.textContent = 'ABHA ID linked successfully ✓';
+      abhaHint.style.color = '#22c55e';
+      if (abhaStatus) {
+        if (state.user.abha_verified) {
+          abhaStatus.textContent = '✅ Verified on ' + new Date(state.user.abha_verified_at).toLocaleDateString();
+          abhaStatus.style.color = '#22c55e';
+        } else {
+          abhaStatus.textContent = '⏳ Pending verification';
+          abhaStatus.style.color = '#f59e0b';
+        }
+      }
+    } else {
+      abhaInput.value = '';
+      abhaHint.textContent = '14-digit unique health ID (optional)';
+      abhaHint.style.color = '#64748b';
+      if (abhaStatus) abhaStatus.textContent = '';
+    }
+  }
+}
+
+// Toast Notifications
+function showToast(title, message, type = 'info') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+
+  const icons = {
+    success: '✅',
+    error: '❌',
+    warning: '⚠️',
+    info: 'ℹ️'
+  };
+
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `
+    <div class="toast-icon">${icons[type]}</div>
+    <div class="toast-content">
+      <div class="toast-title">${title}</div>
+      <div class="toast-message">${message}</div>
+    </div>
+  `;
+
+  container.appendChild(toast);
+
+  // Animate in
+  animateMotion(toast, [
+    { opacity: 0, transform: 'translateX(100%)' },
+    { opacity: 1, transform: 'translateX(0)' }
+  ], { duration: 300 });
+
+  // Auto-remove after 5 seconds
+  setTimeout(() => {
+    animateMotion(toast, [
+      { opacity: 1, transform: 'translateX(0)' },
+      { opacity: 0, transform: 'translateX(100%)' }
+    ], { duration: 300 }).then(() => toast.remove());
+  }, 5000);
+}
+
+function validateABHAId(abhaId) {
+  // ABHA ID must be exactly 14 digits
+  const abhaRegex = /^\d{14}$/;
+  return abhaRegex.test(abhaId);
+}
+
+async function saveProfile() {
+  const name = document.getElementById('profile-name').value.trim();
+  const phone = document.getElementById('profile-phone').value.trim();
+  const abhaId = document.getElementById('profile-abha').value.trim();
+
+  if (!name) {
+    showToast('Error', 'Name is required.', 'error');
+    return;
+  }
+
+  if (abhaId && !validateABHAId(abhaId)) {
+    showToast('Invalid ABHA ID', 'ABHA ID must be exactly 14 digits.', 'error');
+    document.getElementById('profile-abha').focus();
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
+      body: JSON.stringify({ full_name: name, phone, abha_id: abhaId || null })
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      state.user = data.user;
+      showToast('Success', 'Profile updated successfully.', 'success');
+      updateABHAUI();
+    } else {
+      showToast('Error', data.error || 'Failed to update profile.', 'error');
+    }
+  } catch (err) {
+    console.error('Save profile error:', err);
+    showToast('Error', 'Server error while saving.', 'error');
+  }
+}
+
+async function checkSuspensionStatus() {
+  try {
+    const res = await fetch('/api/abuse/check/' + state.user.id, {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.suspended && data.suspension) {
+        showSuspensionBanner(data.suspension);
+      } else {
+        hideSuspensionBanner();
+      }
+    }
+  } catch (err) {
+    console.error('Check suspension error:', err);
+  }
+}
+
+function showSuspensionBanner(suspension) {
+  const banner = document.getElementById('suspension-banner');
+  const title = document.getElementById('suspension-title');
+  const message = document.getElementById('suspension-message');
+
+  if (banner && title && message) {
+    const typeLabels = {
+      'warning': '⚠️ Account Warning',
+      'temporary': '🚫 Account Temporarily Suspended',
+      'permanent': '🛑 Account Permanently Suspended'
+    };
+    title.textContent = typeLabels[suspension.suspension_type] || 'Account Suspended';
+
+    let msg = suspension.reason;
+    if (suspension.expires_at) {
+      msg += ' Expires: ' + new Date(suspension.expires_at).toLocaleString();
+    }
+    message.textContent = msg;
+
+    banner.style.display = 'flex';
+  }
+}
+
+function hideSuspensionBanner() {
+  const banner = document.getElementById('suspension-banner');
+  if (banner) banner.style.display = 'none';
 }
 
 function getInitials(name) {
@@ -174,6 +407,709 @@ async function fetchPatientAppointments() {
   } catch (err) {
     console.error('Fetch appts error:', err);
   }
+}
+
+// Reports Functions
+async function fetchPatientReports() {
+  if (!state.token) return;
+  try {
+    const res = await fetch('/api/reports', {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      state.reports = data.reports || [];
+      filterReports(state.currentReportFilter);
+    }
+  } catch (err) {
+    console.error('Fetch reports error:', err);
+  }
+}
+
+function filterReports(filter) {
+  state.currentReportFilter = filter;
+
+  document.querySelectorAll('#tab-dash-reports .filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.onclick && btn.onclick.toString().includes(filter));
+  });
+
+  if (filter === 'all') {
+    state.filteredReports = [...state.reports];
+  } else {
+    state.filteredReports = state.reports.filter(r => r.document_type === filter);
+  }
+
+  renderReportsGrid();
+}
+
+function renderReportsGrid() {
+  const grid = document.getElementById('reports-grid');
+  const empty = document.getElementById('reports-empty');
+
+  if (!grid) return;
+
+  if (state.filteredReports.length === 0) {
+    grid.style.display = 'none';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+
+  grid.style.display = 'grid';
+  if (empty) empty.style.display = 'none';
+
+  const typeIcons = {
+    'lab_result': '🧪',
+    'prescription': '💊',
+    'imaging': '🖼️',
+    'discharge_summary': '🏥',
+    'other': '📄'
+  };
+
+  const typeLabels = {
+    'lab_result': 'Lab Result',
+    'prescription': 'Prescription',
+    'imaging': 'Imaging',
+    'discharge_summary': 'Discharge Summary',
+    'other': 'Other'
+  };
+
+  grid.innerHTML = state.filteredReports.map(report => `
+    <div class="report-card" onclick="viewReport(${report.id})">
+      <div class="report-card-header">
+        <span class="report-type-icon">${typeIcons[report.document_type] || '📄'}</span>
+        <span class="report-type-badge">${typeLabels[report.document_type] || 'Document'}</span>
+      </div>
+      <div class="report-card-body">
+        <h4 class="report-title">${report.original_name}</h4>
+        <div class="report-meta">
+          <span>${formatDate(report.created_at)}</span>
+          <span>${formatFileSize(report.file_size)}</span>
+          ${report.appointment_id ? `<span>Appt #${report.appointment_id}</span>` : ''}
+        </div>
+        ${report.description ? `<p class="report-desc">${report.description}</p>` : ''}
+      </div>
+      <div class="report-card-footer">
+        <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); downloadReport(${report.id})">⬇️ Download</button>
+        <button class="btn btn-outline btn-sm" style="color: #ef4444;" onclick="event.stopPropagation(); deleteReport(${report.id})">🗑️ Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+// Upload Report Modal
+function openUploadReportModal() {
+  document.getElementById('upload-report-modal').classList.add('active');
+  populateReportAppointmentDropdown();
+  resetUploadForm();
+}
+
+function closeUploadReportModal() {
+  document.getElementById('upload-report-modal').classList.remove('active');
+  resetUploadForm();
+}
+
+function resetUploadForm() {
+  document.getElementById('upload-report-form').reset();
+  document.getElementById('file-preview').style.display = 'none';
+  document.getElementById('file-preview').innerHTML = '';
+  document.getElementById('upload-report-submit').disabled = true;
+  document.getElementById('file-drop-zone').classList.remove('has-file');
+  document.querySelector('#file-drop-zone .drop-zone-text').textContent = 'Drag & drop a PDF, JPG, or PNG file here';
+}
+
+function populateReportAppointmentDropdown() {
+  const select = document.getElementById('report-appointment');
+  if (!select) return;
+
+  const upcoming = state.appointments.filter(a => a.status === 'scheduled' || a.status === 'completed');
+  select.innerHTML = '<option value="">No appointment linked</option>' +
+    upcoming.map(a => `<option value="${a.id}">${a.doctor_name} - ${a.appointment_date} ${a.appointment_time}</option>`).join('');
+}
+
+// File drop zone handling
+document.addEventListener('DOMContentLoaded', () => {
+  // File drop zone
+  const dropZone = document.getElementById('file-drop-zone');
+  const fileInput = document.getElementById('report-file');
+
+  if (dropZone && fileInput) {
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', (e) => {
+      handleFileSelect(e.target.files[0]);
+    });
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('drag-over');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        fileInput.files = e.dataTransfer.files;
+        handleFileSelect(file);
+      }
+    });
+  }
+});
+
+function handleFileSelect(file) {
+  if (!file) return;
+
+  const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+  const maxSize = 10 * 1024 * 1024; // 10MB
+
+  if (!allowedTypes.includes(file.type)) {
+    showToast('Invalid File', 'Only PDF, JPG, and PNG files are allowed.', 'error');
+    return;
+  }
+
+  if (file.size > maxSize) {
+    showToast('File Too Large', 'Maximum file size is 10MB.', 'error');
+    return;
+  }
+
+  const preview = document.getElementById('file-preview');
+  const icon = file.type === 'application/pdf' ? '📄' : '🖼️';
+
+  preview.innerHTML = `
+    <div class="preview-file">
+      <span class="preview-icon">${icon}</span>
+      <div class="preview-info">
+        <div class="preview-name">${file.name}</div>
+        <div class="preview-size">${formatFileSize(file.size)}</div>
+      </div>
+      <button type="button" class="preview-remove" onclick="clearFileSelection()">×</button>
+    </div>
+  `;
+  preview.style.display = 'block';
+  document.getElementById('file-drop-zone').classList.add('has-file');
+  document.querySelector('#file-drop-zone .drop-zone-text').textContent = file.name;
+  document.getElementById('upload-report-submit').disabled = false;
+}
+
+function clearFileSelection() {
+  document.getElementById('report-file').value = '';
+  resetUploadForm();
+}
+
+async function submitReportUpload() {
+  const fileInput = document.getElementById('report-file');
+  const docType = document.getElementById('report-doc-type').value;
+  const description = document.getElementById('report-description').value;
+  const appointmentId = document.getElementById('report-appointment').value;
+
+  if (!fileInput.files[0] || !docType) {
+    showToast('Missing Fields', 'Please select a file and document type.', 'error');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  formData.append('document_type', docType);
+  if (description) formData.append('description', description);
+  if (appointmentId) formData.append('appointment_id', appointmentId);
+
+  showLoading(true, 'Uploading report...');
+
+  try {
+    const res = await fetch('/api/reports', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${state.token}`
+      },
+      body: formData
+    });
+
+    const data = await res.json();
+    showLoading(false);
+
+    if (res.ok) {
+      showToast('Success', 'Report uploaded successfully!', 'success');
+      closeUploadReportModal();
+      fetchPatientReports();
+    } else {
+      showToast('Error', data.error || 'Failed to upload report.', 'error');
+    }
+  } catch (err) {
+    showLoading(false);
+    console.error('Upload error:', err);
+    showToast('Error', 'Server error while uploading.', 'error');
+  }
+}
+
+// View Report Modal
+function viewReport(reportId) {
+  const report = state.reports.find(r => r.id === reportId);
+  if (!report) return;
+
+  const modal = document.getElementById('view-report-modal');
+  const title = document.getElementById('view-report-title');
+  const content = document.getElementById('view-report-content');
+  const downloadBtn = document.getElementById('download-report-btn');
+
+  if (modal && title && content) {
+    title.textContent = report.original_name;
+    downloadBtn.dataset.reportId = reportId;
+
+    const typeIcons = {
+      'lab_result': '🧪',
+      'prescription': '💊',
+      'imaging': '🖼️',
+      'discharge_summary': '🏥',
+      'other': '📄'
+    };
+
+    const typeLabels = {
+      'lab_result': 'Lab Result',
+      'prescription': 'Prescription',
+      'imaging': 'Imaging',
+      'discharge_summary': 'Discharge Summary',
+      'other': 'Other'
+    };
+
+    const isImage = report.mime_type.startsWith('image/');
+
+    content.innerHTML = `
+      <div class="report-view">
+        <div class="report-view-header">
+          <span class="report-view-type-icon">${typeIcons[report.document_type] || '📄'}</span>
+          <div class="report-view-type-info">
+            <div class="report-view-type">${typeLabels[report.document_type] || 'Document'}</div>
+            <div class="report-view-meta">
+              Uploaded: ${formatDate(report.created_at)} • ${formatFileSize(report.file_size)} • ${report.mime_type}
+            </div>
+          </div>
+        </div>
+        ${report.description ? `<div class="report-view-desc">${report.description}</div>` : ''}
+        <div class="report-view-preview">
+          ${isImage
+            ? `<img src="/api/reports/${report.id}/download" alt="${report.original_name}" style="max-width: 100%; max-height: 500px;">`
+            : `<div class="pdf-placeholder">
+                <span class="pdf-icon">📄</span>
+                <p>PDF Preview not available in browser</p>
+                <button class="btn btn-primary" onclick="downloadReport(${report.id})">⬇️ Download to View</button>
+              </div>`
+          }
+        </div>
+      </div>
+    `;
+
+    modal.classList.add('active');
+  }
+}
+
+function closeViewReportModal() {
+  document.getElementById('view-report-modal').classList.remove('active');
+}
+
+async function downloadReport(reportId) {
+  try {
+    const res = await fetch(`/api/reports/${reportId}/download`, {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = '';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+    } else {
+      const data = await res.json();
+      showToast('Error', data.error || 'Failed to download report.', 'error');
+    }
+  } catch (err) {
+    console.error('Download error:', err);
+    showToast('Error', 'Server error while downloading.', 'error');
+  }
+}
+
+async function deleteReport(reportId) {
+  if (!confirm('Are you sure you want to delete this report?')) return;
+
+  try {
+    const res = await fetch(`/api/reports/${reportId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+
+    if (res.ok) {
+      showToast('Success', 'Report deleted successfully.', 'success');
+      fetchPatientReports();
+    } else {
+      const data = await res.json();
+      showToast('Error', data.error || 'Failed to delete report.', 'error');
+    }
+  } catch (err) {
+    console.error('Delete error:', err);
+    showToast('Error', 'Server error while deleting.', 'error');
+  }
+}
+
+/* Symptom Checker (AI-Assisted guided flow) */
+const symptomFlow = {
+  sessionId: null,
+  questionIndex: 0,
+  totalQuestions: 0,
+  currentQuestion: null,
+  lastSummary: null,
+  lastEmergency: null
+};
+
+// Element lookup: tab uses baseId, modal uses 'modal-' + baseId
+function symptomEl(mode, baseId) {
+  return document.getElementById((mode === 'modal' ? 'modal-' : '') + baseId);
+}
+
+// Wrappers bound by the HTML buttons
+function startSymptomAssessment() { startSymptomAssessmentFlow('tab'); }
+function startSymptomAssessmentModal() { startSymptomAssessmentFlow('modal'); }
+
+async function startSymptomAssessmentFlow(mode) {
+  if (!state.token) {
+    openLoginModal();
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/symptoms/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
+      body: JSON.stringify({})
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showToast('Error', data.error || 'Failed to start assessment.', 'error');
+      return;
+    }
+
+    symptomFlow.sessionId = data.assessment.session_id;
+    symptomFlow.questionIndex = data.questionIndex;
+    symptomFlow.totalQuestions = data.totalQuestions;
+    symptomFlow.currentQuestion = data.currentQuestion;
+
+    // Switch UI from welcome to chat
+    symptomEl(mode, 'symptom-welcome').style.display = 'none';
+    symptomEl(mode, 'symptom-summary').style.display = 'none';
+    const chatEl = symptomEl(mode, 'symptom-chat');
+    chatEl.style.display = 'block';
+    symptomEl(mode, 'symptom-chat-messages').innerHTML = '';
+    updateSymptomProgress(mode);
+
+    addBotMessage(mode, '👋 Hello! I\'ll ask you a few questions to understand your symptoms. This helps your doctor get context before your visit.');
+    setTimeout(() => {
+      addBotMessage(mode, data.currentQuestion.question);
+      renderSymptomInput(mode, data.currentQuestion);
+    }, 350);
+  } catch (err) {
+    console.error('Start symptom error:', err);
+    showToast('Error', 'Server error starting assessment.', 'error');
+  }
+}
+
+function updateSymptomProgress(mode) {
+  const fill = symptomEl(mode, 'symptom-progress-fill');
+  const text = symptomEl(mode, 'symptom-progress-text');
+  if (fill) {
+    const pct = Math.round((symptomFlow.questionIndex / symptomFlow.totalQuestions) * 100);
+    fill.style.width = `${Math.min(100, pct)}%`;
+  }
+  if (text) {
+    text.textContent = `Question ${Math.min(symptomFlow.questionIndex + 1, symptomFlow.totalQuestions)} of ${symptomFlow.totalQuestions}`;
+  }
+}
+
+function addBotMessage(mode, text) {
+  const container = symptomEl(mode, 'symptom-chat-messages');
+  const msg = document.createElement('div');
+  msg.className = 'symptom-msg symptom-msg-bot';
+  msg.innerHTML = `<span class="symptom-msg-bubble">${text}</span>`;
+  container.appendChild(msg);
+  scrollSymptomChat(mode);
+}
+
+function addUserMessage(mode, text) {
+  const container = symptomEl(mode, 'symptom-chat-messages');
+  const msg = document.createElement('div');
+  msg.className = 'symptom-msg symptom-msg-user';
+  msg.innerHTML = `<span class="symptom-msg-bubble">${text}</span>`;
+  container.appendChild(msg);
+  scrollSymptomChat(mode);
+}
+
+function scrollSymptomChat(mode) {
+  const container = symptomEl(mode, 'symptom-chat-messages');
+  if (container) container.scrollTop = container.scrollHeight;
+}
+
+function renderSymptomInput(mode, question) {
+  const area = symptomEl(mode, 'symptom-input-area');
+  if (!area) return;
+  symptomFlow.currentQuestion = question;
+
+  let html = '';
+  if (question.type === 'select' || question.type === 'multiselect') {
+    const multi = question.type === 'multiselect';
+    html = `
+      <div class="symptom-options">
+        ${question.options.map(opt => `
+          <button type="button" class="symptom-option-btn ${multi ? 'multi' : ''}" data-value="${opt.value}" onclick="selectSymptomOption('${mode}', '${opt.value}', this, ${multi})">
+            ${opt.label}
+          </button>
+        `).join('')}
+      </div>
+      <button type="button" class="btn btn-primary btn-block" style="margin-top:0.75rem;" onclick="submitSymptomAnswer('${mode}')">Continue →</button>
+    `;
+  } else if (question.type === 'number') {
+    html = `
+      <div class="symptom-input-row">
+        <input type="number" id="symptom-answer-input" min="${question.min || 1}" max="${question.max || 10}" value="5" class="form-input" style="flex:1;">
+        <button type="button" class="btn btn-primary" onclick="submitSymptomAnswer('${mode}')">Send</button>
+      </div>
+    `;
+  } else if (question.type === 'textarea') {
+    html = `
+      <textarea id="symptom-answer-input" class="form-textarea" rows="3" placeholder="Type your answer..."></textarea>
+      <button type="button" class="btn btn-primary btn-block" style="margin-top:0.5rem;" onclick="submitSymptomAnswer('${mode}')">Send</button>
+    `;
+  } else {
+    // text
+    html = `
+      <div class="symptom-input-row">
+        <input type="text" id="symptom-answer-input" class="form-input" style="flex:1;" placeholder="Type your answer..." onkeydown="if(event.key==='Enter')submitSymptomAnswer('${mode}')">
+        <button type="button" class="btn btn-primary" onclick="submitSymptomAnswer('${mode}')">Send</button>
+      </div>
+    `;
+  }
+
+  area.innerHTML = html;
+  const input = area.querySelector('#symptom-answer-input');
+  if (input && question.type !== 'multiselect') input.focus();
+}
+
+function selectSymptomOption(mode, value, btnEl, multi) {
+  if (multi) {
+    btnEl.classList.toggle('selected');
+  } else {
+    document.querySelectorAll(`#${(mode === 'modal' ? 'modal-' : '')}symptom-input-area .symptom-option-btn`).forEach(b => b.classList.remove('selected'));
+    btnEl.classList.add('selected');
+  }
+}
+
+function gatherSymptomAnswer(mode) {
+  const q = symptomFlow.currentQuestion;
+  if (!q) return null;
+
+  if (q.type === 'select') {
+    const sel = document.querySelector(`#${(mode === 'modal' ? 'modal-' : '')}symptom-input-area .symptom-option-btn.selected`);
+    return sel ? sel.dataset.value : null;
+  } else if (q.type === 'multiselect') {
+    const sel = document.querySelectorAll(`#${(mode === 'modal' ? 'modal-' : '')}symptom-input-area .symptom-option-btn.selected`);
+    const values = Array.from(sel).map(s => s.dataset.value);
+    return values.length ? values : ['none'];
+  }
+  return document.getElementById('symptom-answer-input').value;
+}
+
+async function submitSymptomAnswer(mode) {
+  const q = symptomFlow.currentQuestion;
+  if (!q) return;
+
+  const answer = gatherSymptomAnswer(mode);
+  if (!answer || (q.required && (answer === '' || (Array.isArray(answer) && answer.length === 0)))) {
+    showToast('Required', 'Please provide an answer to continue.', 'warning');
+    return;
+  }
+
+  const displayAnswer = Array.isArray(answer) ? answer.join(', ') : answer;
+  addUserMessage(mode, displayAnswer);
+
+  // Disable input area while awaiting response
+  symptomEl(mode, 'symptom-input-area').innerHTML = '<div class="symptom-typing">Assistant is thinking…</div>';
+
+  try {
+    const res = await fetch(`/api/symptoms/${symptomFlow.sessionId}/answer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.token}` },
+      body: JSON.stringify({ answer, questionId: q.id })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showToast('Error', data.error || 'Failed to submit answer.', 'error');
+      symptomEl(mode, 'symptom-input-area').innerHTML = '';
+      return;
+    }
+
+    if (data.isComplete) {
+      symptomFlow.questionIndex = symptomFlow.totalQuestions;
+      updateSymptomProgress(mode);
+      showSymptomSummary(mode, data);
+    } else {
+      symptomFlow.questionIndex = data.questionIndex;
+      symptomFlow.totalQuestions = data.totalQuestions;
+      symptomFlow.currentQuestion = data.currentQuestion;
+      updateSymptomProgress(mode);
+      setTimeout(() => {
+        addBotMessage(mode, data.currentQuestion.question);
+        renderSymptomInput(mode, data.currentQuestion);
+      }, 300);
+    }
+  } catch (err) {
+    console.error('Symptom answer error:', err);
+    showToast('Error', 'Server error submitting answer.', 'error');
+    symptomEl(mode, 'symptom-input-area').innerHTML = '';
+  }
+}
+
+function showSymptomSummary(mode, data) {
+  symptomEl(mode, 'symptom-chat').style.display = 'none';
+  const summaryEl = symptomEl(mode, 'symptom-summary');
+  summaryEl.style.display = 'block';
+  symptomEl(mode, 'symptom-summary-content').innerHTML = renderSummaryMarkdown(data.summary);
+
+  symptomFlow.lastSummary = data.summary;
+  symptomFlow.lastEmergency = data.emergencyGuidance;
+
+  // Emergency guidance banner if flagged
+  if (data.emergencyGuidance) {
+    const banner = document.createElement('div');
+    banner.className = 'symptom-emergency';
+    banner.innerHTML = `
+      <strong>🚨 ${data.emergencyGuidance.message}</strong>
+      <p>${data.emergencyGuidance.recommendation}</p>
+      <small>${data.emergencyGuidance.disclaimer}</small>
+    `;
+    summaryEl.insertBefore(banner, summaryEl.querySelector('.summary-content'));
+  }
+}
+
+function renderSummaryMarkdown(md) {
+  // Lightweight markdown-ish rendering for the summary (bold lines and bullets)
+  const escaped = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return escaped
+    .split('\n')
+    .map(line => {
+      if (line.startsWith('**') && line.endsWith('**')) {
+        return `<div class="summary-line summary-line-title">${line.slice(2, -2)}</div>`;
+      }
+      if (line.startsWith('- ')) {
+        return `<div class="summary-line">• ${line.slice(2)}</div>`;
+      }
+      if (line.startsWith('*') && line.endsWith('*')) {
+        return `<div class="summary-line summary-line-note"><em>${line.slice(1, -1)}</em></div>`;
+      }
+      if (!line.trim()) return '';
+      return `<div class="summary-line">${line}</div>`;
+    })
+    .join('');
+}
+
+async function saveSymptomAssessment() { await persistSymptomSummary(); }
+async function saveSymptomAssessmentModal() { await persistSymptomSummary(); }
+
+async function persistSymptomSummary() {
+  if (!symptomFlow.lastSummary) {
+    showToast('Info', 'No completed assessment to save.', 'info');
+    return;
+  }
+  // Assessment is already persisted server-side; refresh the local history list
+  showToast('Success', 'Assessment saved and shared with your doctor.', 'success');
+  await fetchPatientSymptomHistory();
+}
+
+function startNewSymptomAssessment() { resetSymptomUI('tab'); startSymptomAssessmentFlow('tab'); }
+function startNewSymptomAssessmentModal() { resetSymptomUI('modal'); startSymptomAssessmentFlow('modal'); }
+
+function resetSymptomUI(mode) {
+  symptomEl(mode, 'symptom-welcome').style.display = 'block';
+  symptomEl(mode, 'symptom-chat').style.display = 'none';
+  symptomEl(mode, 'symptom-summary').style.display = 'none';
+  symptomEl(mode, 'symptom-chat-messages').innerHTML = '';
+  symptomEl(mode, 'symptom-input-area').innerHTML = '';
+  symptomFlow.sessionId = null;
+  symptomFlow.questionIndex = 0;
+  symptomFlow.lastSummary = null;
+  symptomFlow.lastEmergency = null;
+}
+
+async function fetchPatientSymptomHistory() {
+  if (!state.token) return;
+  try {
+    const res = await fetch(`/api/symptoms/patient/${state.user.id}`, {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      renderSymptomHistory(data.assessments || []);
+    }
+  } catch (err) {
+    console.error('Fetch symptom history error:', err);
+  }
+}
+
+function renderSymptomHistory(assessments) {
+  const list = document.getElementById('symptom-history-list');
+  if (!list) return;
+
+  if (!assessments.length) {
+    list.innerHTML = '<div style="padding:1.5rem; text-align:center; color:#64748b;">No assessments yet.</div>';
+    return;
+  }
+
+  const urgencyBadges = {
+    'routine': 'badge-completed',
+    'urgent': 'badge-priority-urgent',
+    'emergency': 'badge-priority-critical'
+  };
+  const urgencyLabels = {
+    'routine': 'Routine',
+    'urgent': 'Urgent',
+    'emergency': '🚨 Emergency'
+  };
+
+  list.innerHTML = assessments.map(a => `
+    <div class="appt-item-row" onclick="viewSymptomHistoryItem(${a.id})" style="cursor:pointer;">
+      <div class="appt-item-left">
+        <div class="row-doc-avatar">🩺</div>
+        <div>
+          <div class="row-doc-name">${a.chief_complaint || 'Symptom Assessment'}</div>
+          <div class="row-doc-spec">${a.started_at ? new Date(a.started_at).toLocaleString() : ''} • Severity ${a.severity_score || '—'}/10</div>
+        </div>
+      </div>
+      <div class="appt-item-right">
+        <span class="badge ${urgencyBadges[a.urgency_level] || 'badge-waiting'}">${urgencyLabels[a.urgency_level] || a.urgency_level}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function viewSymptomHistoryItem(assessmentId) {
+  const list = document.getElementById('symptom-history-list');
+  const item = list.querySelector(`[onclick="viewSymptomHistoryItem(${assessmentId})"]`);
+  // Show inline summary by toggling a detail area; reuse summary modal is overkill.
+  // Simple approach: fetch and alert-style expand not needed for prototype; log it.
+  console.log('View assessment', assessmentId);
+  showToast('Info', 'Detailed assessment view is available in the Doctor portal.', 'info');
 }
 
 /* Landing Page Renderers */
@@ -907,3 +1843,243 @@ function showDashboardView() {
     dashboard.style.display = 'flex';
   }
 }
+
+/* ============================================================
+   CHATBOT WIDGET - Health Assistant
+   ============================================================ */
+
+let chatbotState = {
+  isOpen: false,
+  messages: [],
+  isLoading: false
+};
+
+function toggleChatbot() {
+  const panel = document.getElementById('chatbot-panel');
+  const btn = document.getElementById('chatbot-float-btn');
+
+  if (!panel || !btn) return;
+
+  chatbotState.isOpen = !chatbotState.isOpen;
+
+  if (chatbotState.isOpen) {
+    panel.style.display = 'flex';
+    btn.classList.add('active');
+    btn.setAttribute('aria-expanded', 'true');
+    // Focus input after animation
+    setTimeout(() => {
+      const input = document.getElementById('chatbot-input');
+      if (input) input.focus();
+    }, 300);
+
+    // Initialize welcome message if empty
+    if (chatbotState.messages.length === 0) {
+      initializeChatbot();
+    }
+  } else {
+    panel.style.display = 'none';
+    btn.classList.remove('active');
+    btn.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function initializeChatbot() {
+  // Welcome message is already in HTML, just add to state
+  chatbotState.messages.push({
+    role: 'assistant',
+    content: `Hello! I'm your Swasthya Saarthi Health Assistant. 👋
+
+I can help you with:
+- 🩺 General health questions & medical term explanations
+- 🏥 Finding the right specialist for your symptoms
+- 📱 Using Swasthya Saarthi (booking, queue tracking, reports)
+- 📋 Preparing for doctor visits (organizing symptoms)
+- 🌿 Wellness & prevention tips
+
+**For appointment/queue specifics**, I'll need your appointment details.
+
+**For health concerns**, please remember: I'm an AI assistant, not a doctor. I cannot diagnose or prescribe.
+
+What would you like help with today?
+
+---
+⚠️ I am an AI assistant, not a doctor. This information is for educational purposes only. Please consult a healthcare professional for medical advice, diagnosis, or treatment.`,
+    timestamp: new Date().toISOString()
+  });
+}
+
+async function sendChatbotMessage(e) {
+  e.preventDefault();
+
+  const input = document.getElementById('chatbot-input');
+  const message = input.value.trim();
+
+  if (!message || chatbotState.isLoading) return;
+
+  // Add user message to UI
+  addChatbotMessage('user', message);
+  chatbotState.messages.push({ role: 'user', content: message, timestamp: new Date().toISOString() });
+
+  // Clear input
+  input.value = '';
+
+  // Show typing indicator
+  showChatbotTyping(true);
+  chatbotState.isLoading = true;
+
+  try {
+    const res = await fetch('/api/chatbot/message', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.token}`
+      },
+      body: JSON.stringify({
+        message,
+        conversationHistory: chatbotState.messages.slice(-10) // Last 10 messages for context
+      })
+    });
+
+    const data = await res.json();
+
+    showChatbotTyping(false);
+    chatbotState.isLoading = false;
+
+    if (res.ok) {
+      addChatbotMessage('bot', data.response, data.emergency);
+      chatbotState.messages.push({
+        role: 'assistant',
+        content: data.response,
+        emergency: data.emergency,
+        timestamp: data.timestamp
+      });
+
+      // Scroll to bottom
+      scrollChatbotMessages();
+    } else {
+      showToast('Error', data.error || 'Failed to get response', 'error');
+      // Add fallback message
+      addChatbotMessage('bot', "I'm having trouble connecting right now. Please try again in a moment, or contact support if the issue persists.");
+    }
+  } catch (err) {
+    console.error('Chatbot error:', err);
+    showChatbotTyping(false);
+    chatbotState.isLoading = false;
+    showToast('Error', 'Server error. Please try again.', 'error');
+    addChatbotMessage('bot', "I'm having trouble connecting right now. Please try again in a moment, or contact support if the issue persists.");
+  }
+}
+
+function addChatbotMessage(role, content, isEmergency = false) {
+  const container = document.getElementById('chatbot-messages');
+  if (!container) return;
+
+  // Remove welcome message if it exists
+  const welcomeMsg = container.querySelector('.chatbot-welcome-message');
+  if (welcomeMsg) {
+    welcomeMsg.remove();
+  }
+
+  const msgDiv = document.createElement('div');
+  msgDiv.className = `chatbot-message ${role}`;
+
+  const avatar = role === 'bot' ? '🤖' : getInitials(state.user?.full_name || 'You');
+
+  // Format content (basic markdown-like)
+  const formattedContent = formatChatbotMessage(content);
+
+  const emergencyClass = isEmergency ? ' chatbot-emergency' : '';
+
+  msgDiv.innerHTML = `
+    <div class="chatbot-message-avatar">${avatar}</div>
+    <div class="chatbot-message-content${emergencyClass}">
+      ${formattedContent}
+    </div>
+  `;
+
+  container.appendChild(msgDiv);
+  scrollChatbotMessages();
+}
+
+function formatChatbotMessage(text) {
+  if (!text) return '';
+
+  // Escape HTML
+  let html = text
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>');
+
+  // Convert markdown-style formatting
+  // Bold
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  // Italic
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  // Line breaks
+  html = html.replace(/\n/g, '<br>');
+  // Bullet points
+  html = html.replace(/^• (.*$)/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+
+  return html;
+}
+
+function scrollChatbotMessages() {
+  const container = document.getElementById('chatbot-messages');
+  if (container) {
+    container.scrollTop = container.scrollHeight;
+  }
+}
+
+function showChatbotTyping(show) {
+  const indicator = document.getElementById('chatbot-typing-indicator');
+  if (indicator) {
+    indicator.style.display = show ? 'flex' : 'none';
+  }
+  if (show) {
+    scrollChatbotMessages();
+  }
+}
+
+function clearChatbotHistory() {
+  if (!confirm('Clear conversation history?')) return;
+
+  chatbotState.messages = [];
+
+  const container = document.getElementById('chatbot-messages');
+  if (container) {
+    container.innerHTML = '';
+    // Re-add welcome message
+    container.innerHTML = `
+      <div class="chatbot-welcome-message">
+        <div class="chatbot-message bot">
+          <div class="chatbot-message-avatar">🤖</div>
+          <div class="chatbot-message-content">
+            <div class="chatbot-message-text">Hello! I'm your Swasthya Saarthi Health Assistant. 👋</div>
+            <div class="chatbot-message-text">I can help you with:</div>
+            <ul class="chatbot-capabilities">
+              <li>🩺 General health questions & medical term explanations</li>
+              <li>🏥 Finding the right specialist for your symptoms</li>
+              <li>📱 Using Swasthya Saarthi (booking, queue tracking, reports)</li>
+              <li>📋 Preparing for doctor visits (organizing symptoms)</li>
+              <li>🌿 Wellness & prevention tips</li>
+            </ul>
+            <div class="chatbot-disclaimer">⚠️ I am an AI assistant, not a doctor. This information is for educational purposes only. Please consult a healthcare professional for medical advice, diagnosis, or treatment.</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  showToast('Cleared', 'Conversation history cleared.', 'info');
+}
+
+// Handle Enter key in chatbot input
+document.addEventListener('keydown', (e) => {
+  const input = document.getElementById('chatbot-input');
+  if (input && document.activeElement === input && e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    const form = document.getElementById('chatbot-form');
+    if (form) form.dispatchEvent(new Event('submit'));
+  }
+});

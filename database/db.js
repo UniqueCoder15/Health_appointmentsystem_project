@@ -100,33 +100,35 @@ const queries = {
 
   // Appointment & Queue queries
   getAppointmentsByPatient: getDatabase().prepare(`
-    SELECT a.*, u.full_name as doctor_name, u.email as doctor_email, d.location as doctor_location, d.rating as doctor_rating, s.name as specialty_name, s.icon as specialty_icon
+    SELECT a.*, u.full_name as doctor_name, u.email as doctor_email, d.location as doctor_location, d.rating as doctor_rating, s.name as specialty_name, s.icon as specialty_icon, p.abha_id as patient_abha_id
     FROM appointments a
     JOIN doctors d ON a.doctor_id = d.id
     JOIN users u ON d.user_id = u.id
     JOIN specialties s ON d.specialty_id = s.id
+    JOIN users p ON a.patient_id = p.id
     WHERE a.patient_id = ?
     ORDER BY a.appointment_date DESC, a.appointment_time DESC
   `),
   getNextAppointmentByPatient: getDatabase().prepare(`
-    SELECT a.*, u.full_name as doctor_name, u.email as doctor_email, d.location as doctor_location, s.name as specialty_name, s.icon as specialty_icon
+    SELECT a.*, u.full_name as doctor_name, u.email as doctor_email, d.location as doctor_location, s.name as specialty_name, s.icon as specialty_icon, p.abha_id as patient_abha_id
     FROM appointments a
     JOIN doctors d ON a.doctor_id = d.id
     JOIN users u ON d.user_id = u.id
     JOIN specialties s ON d.specialty_id = s.id
+    JOIN users p ON a.patient_id = p.id
     WHERE a.patient_id = ? AND a.status IN ('scheduled', 'in-progress')
     ORDER BY a.appointment_date ASC, a.appointment_time ASC
     LIMIT 1
   `),
   getAppointmentsByDoctor: getDatabase().prepare(`
-    SELECT a.*, u.full_name as patient_name, u.email as patient_email, u.phone as patient_phone, u.avatar as patient_avatar
+    SELECT a.*, u.full_name as patient_name, u.email as patient_email, u.phone as patient_phone, u.avatar as patient_avatar, u.abha_id as patient_abha_id
     FROM appointments a
     JOIN users u ON a.patient_id = u.id
     WHERE a.doctor_id = ?
     ORDER BY a.appointment_date, a.appointment_time
   `),
   getTodayDoctorQueue: getDatabase().prepare(`
-    SELECT a.*, u.full_name as patient_name, u.email as patient_email, u.phone as patient_phone, u.avatar as patient_avatar
+    SELECT a.*, u.full_name as patient_name, u.email as patient_email, u.phone as patient_phone, u.avatar as patient_avatar, u.abha_id as patient_abha_id
     FROM appointments a
     JOIN users u ON a.patient_id = u.id
     WHERE a.doctor_id = ? AND a.appointment_date = date('now', 'localtime') AND a.status IN ('scheduled', 'in-progress')
@@ -134,7 +136,7 @@ const queries = {
   `),
   getAllAppointments: getDatabase().prepare(`
     SELECT a.*,
-      p.full_name as patient_name, p.email as patient_email, p.phone as patient_phone,
+      p.full_name as patient_name, p.email as patient_email, p.phone as patient_phone, p.abha_id as patient_abha_id,
       u.full_name as doctor_name, u.email as doctor_email, s.name as specialty_name
     FROM appointments a
     JOIN users p ON a.patient_id = p.id
@@ -145,7 +147,7 @@ const queries = {
   `),
   getAppointmentById: getDatabase().prepare(`
     SELECT a.*,
-      p.full_name as patient_name, p.email as patient_email, p.phone as patient_phone,
+      p.full_name as patient_name, p.email as patient_email, p.phone as patient_phone, p.abha_id as patient_abha_id,
       u.full_name as doctor_name, u.email as doctor_email, d.location as doctor_location, s.name as specialty_name
     FROM appointments a
     JOIN users p ON a.patient_id = p.id
@@ -197,6 +199,113 @@ const queries = {
       (SELECT COUNT(*) FROM appointments WHERE status = 'scheduled') as upcoming_appointments,
       (SELECT COUNT(*) FROM appointments WHERE status = 'completed') as completed_appointments,
       (SELECT COUNT(*) FROM appointments WHERE status = 'cancelled') as cancelled_appointments
+  `),
+
+  // Patient Reports queries
+  getPatientReports: getDatabase().prepare(`
+    SELECT pr.*, u.full_name as uploaded_by_name
+    FROM patient_reports pr
+    LEFT JOIN users u ON pr.uploaded_by = u.id
+    WHERE pr.patient_id = ?
+    ORDER BY pr.created_at DESC
+  `),
+  getPatientReportById: getDatabase().prepare(`
+    SELECT pr.*, u.full_name as uploaded_by_name
+    FROM patient_reports pr
+    LEFT JOIN users u ON pr.uploaded_by = u.id
+    WHERE pr.id = ?
+  `),
+  getReportsByAppointment: getDatabase().prepare(`
+    SELECT pr.*, u.full_name as uploaded_by_name
+    FROM patient_reports pr
+    LEFT JOIN users u ON pr.uploaded_by = u.id
+    WHERE pr.appointment_id = ?
+    ORDER BY pr.created_at DESC
+  `),
+  createPatientReport: getDatabase().prepare(`
+    INSERT INTO patient_reports (patient_id, appointment_id, file_name, original_name, mime_type, file_size, file_path, document_type, description, uploaded_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `),
+  deletePatientReport: getDatabase().prepare('DELETE FROM patient_reports WHERE id = ?'),
+  updatePatientReport: getDatabase().prepare(`
+    UPDATE patient_reports SET document_type = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+  `),
+
+  // Symptom Assessments queries
+  createSymptomAssessment: getDatabase().prepare(`
+    INSERT INTO symptom_assessments (patient_id, appointment_id, session_id, chief_complaint, symptoms_json, severity_score, urgency_level, emergency_flag, emergency_reason, summary_for_doctor, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `),
+  getSymptomAssessmentById: getDatabase().prepare(`
+    SELECT * FROM symptom_assessments WHERE id = ?
+  `),
+  getSymptomAssessmentBySessionId: getDatabase().prepare(`
+    SELECT * FROM symptom_assessments WHERE session_id = ?
+  `),
+  getSymptomAssessmentsByPatient: getDatabase().prepare(`
+    SELECT * FROM symptom_assessments WHERE patient_id = ? ORDER BY started_at DESC
+  `),
+  getSymptomAssessmentsByAppointment: getDatabase().prepare(`
+    SELECT * FROM symptom_assessments WHERE appointment_id = ? ORDER BY started_at DESC
+  `),
+  updateSymptomAssessment: getDatabase().prepare(`
+    UPDATE symptom_assessments SET chief_complaint = ?, symptoms_json = ?, severity_score = ?, urgency_level = ?, emergency_flag = ?, emergency_reason = ?, summary_for_doctor = ?, status = ?, completed_at = CASE WHEN ? = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END WHERE id = ?
+  `),
+
+  // Account Activity queries
+  createAccountActivity: getDatabase().prepare(`
+    INSERT INTO account_activity (user_id, activity_type, appointment_id, metadata_json)
+    VALUES (?, ?, ?, ?)
+  `),
+  getAccountActivityByUser: getDatabase().prepare(`
+    SELECT * FROM account_activity WHERE user_id = ? ORDER BY created_at DESC LIMIT 100
+  `),
+  getAccountActivityByUserAndType: getDatabase().prepare(`
+    SELECT * FROM account_activity WHERE user_id = ? AND activity_type = ? AND created_at >= datetime('now', ?) ORDER BY created_at DESC
+  `),
+  getAccountActivityCountByType: getDatabase().prepare(`
+    SELECT COUNT(*) as count FROM account_activity WHERE user_id = ? AND activity_type = ? AND created_at >= datetime('now', ?)
+  `),
+
+  // Account Suspensions queries
+  createAccountSuspension: getDatabase().prepare(`
+    INSERT INTO account_suspensions (user_id, suspension_type, reason, trigger_details_json, suspended_by, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `),
+  getActiveSuspensionByUser: getDatabase().prepare(`
+    SELECT * FROM account_suspensions WHERE user_id = ? AND is_active = 1 AND (expires_at IS NULL OR expires_at > datetime('now')) ORDER BY suspended_at DESC LIMIT 1
+  `),
+  getSuspensionHistoryByUser: getDatabase().prepare(`
+    SELECT s.*, u.full_name as suspended_by_name, u2.full_name as lifted_by_name
+    FROM account_suspensions s
+    LEFT JOIN users u ON s.suspended_by = u.id
+    LEFT JOIN users u2 ON s.lifted_by = u2.id
+    WHERE s.user_id = ?
+    ORDER BY s.suspended_at DESC
+  `),
+  getAllActiveSuspensions: getDatabase().prepare(`
+    SELECT s.*, u.full_name as user_name, u.email as user_email, u2.full_name as suspended_by_name
+    FROM account_suspensions s
+    JOIN users u ON s.user_id = u.id
+    LEFT JOIN users u2 ON s.suspended_by = u2.id
+    WHERE s.is_active = 1 AND (s.expires_at IS NULL OR s.expires_at > datetime('now'))
+    ORDER BY s.suspended_at DESC
+  `),
+  liftSuspension: getDatabase().prepare(`
+    UPDATE account_suspensions SET is_active = 0, lifted_at = CURRENT_TIMESTAMP, lifted_by = ?, lift_reason = ? WHERE id = ?
+  `),
+
+  // Abuse Thresholds queries
+  getAllAbuseThresholds: getDatabase().prepare('SELECT * FROM abuse_thresholds'),
+  getAbuseThresholdByMetric: getDatabase().prepare('SELECT * FROM abuse_thresholds WHERE metric = ?'),
+  updateAbuseThreshold: getDatabase().prepare(`
+    UPDATE abuse_thresholds SET threshold = ?, action = ?, window_days = ?, updated_at = CURRENT_TIMESTAMP WHERE metric = ?
+  `),
+
+  // ABHA queries
+  findUserByAbhaId: getDatabase().prepare('SELECT * FROM users WHERE abha_id = ?'),
+  updateUserAbha: getDatabase().prepare(`
+    UPDATE users SET abha_id = ?, abha_verified = ?, abha_verified_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
   `)
 };
 

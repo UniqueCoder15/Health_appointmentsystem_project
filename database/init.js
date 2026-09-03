@@ -6,6 +6,175 @@ const bcrypt = require('bcryptjs');
 const DB_PATH = path.join(__dirname, 'clinic.db');
 const SCHEMA_PATH = path.join(__dirname, 'schema.sql');
 
+function runMigrations(db) {
+  console.log('Running database migrations...');
+
+  // Feature 1: Add ABHA columns to users table
+  const usersColumns = db.prepare("PRAGMA table_info(users)").all();
+  const usersColumnNames = usersColumns.map(c => c.name);
+
+  if (!usersColumnNames.includes('abha_id')) {
+    db.exec('ALTER TABLE users ADD COLUMN abha_id TEXT');
+    console.log('  Added abha_id column to users');
+  }
+
+  // Create unique index for abha_id (after column exists)
+  const abhaIndexExists = db.prepare("SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_users_abha_id_unique'").get();
+  if (!abhaIndexExists) {
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_abha_id_unique ON users(abha_id) WHERE abha_id IS NOT NULL');
+    console.log('  Created unique index for abha_id');
+  }
+  if (!usersColumnNames.includes('abha_verified')) {
+    db.exec('ALTER TABLE users ADD COLUMN abha_verified INTEGER DEFAULT 0');
+    console.log('  Added abha_verified column to users');
+  }
+  if (!usersColumnNames.includes('abha_verified_at')) {
+    db.exec('ALTER TABLE users ADD COLUMN abha_verified_at DATETIME');
+    console.log('  Added abha_verified_at column to users');
+  }
+
+  // Feature 2: Create patient_reports table
+  const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
+  const tableNames = tables.map(t => t.name);
+
+  if (!tableNames.includes('patient_reports')) {
+    db.exec(`
+      CREATE TABLE patient_reports (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          patient_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
+          file_name TEXT NOT NULL,
+          original_name TEXT NOT NULL,
+          mime_type TEXT NOT NULL,
+          file_size INTEGER NOT NULL,
+          file_path TEXT NOT NULL,
+          document_type TEXT,
+          description TEXT,
+          uploaded_by INTEGER REFERENCES users(id),
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_patient_reports_patient ON patient_reports(patient_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_patient_reports_appointment ON patient_reports(appointment_id)');
+    console.log('  Created patient_reports table');
+  }
+
+  // Feature 3: Create symptom_assessments table
+  if (!tableNames.includes('symptom_assessments')) {
+    db.exec(`
+      CREATE TABLE symptom_assessments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          patient_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
+          session_id TEXT NOT NULL UNIQUE,
+          chief_complaint TEXT,
+          symptoms_json TEXT,
+          severity_score INTEGER,
+          urgency_level TEXT,
+          emergency_flag INTEGER DEFAULT 0,
+          emergency_reason TEXT,
+          summary_for_doctor TEXT,
+          status TEXT DEFAULT 'in_progress',
+          started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          completed_at DATETIME
+      );
+    `);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_symptom_assessments_patient ON symptom_assessments(patient_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_symptom_assessments_appointment ON symptom_assessments(appointment_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_symptom_assessments_session ON symptom_assessments(session_id)');
+    console.log('  Created symptom_assessments table');
+  }
+
+  // Feature 4: Create account_activity table
+  if (!tableNames.includes('account_activity')) {
+    db.exec(`
+      CREATE TABLE account_activity (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          activity_type TEXT NOT NULL,
+          appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
+          metadata_json TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_account_activity_user ON account_activity(user_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_account_activity_type ON account_activity(activity_type)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_account_activity_date ON account_activity(created_at)');
+    console.log('  Created account_activity table');
+  }
+
+  // Create account_suspensions table
+  if (!tableNames.includes('account_suspensions')) {
+    db.exec(`
+      CREATE TABLE account_suspensions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          suspension_type TEXT NOT NULL,
+          reason TEXT NOT NULL,
+          trigger_details_json TEXT,
+          suspended_by INTEGER REFERENCES users(id),
+          suspended_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          expires_at DATETIME,
+          lifted_at DATETIME,
+          lifted_by INTEGER REFERENCES users(id),
+          lift_reason TEXT,
+          is_active INTEGER DEFAULT 1
+      );
+    `);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_account_suspensions_user ON account_suspensions(user_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_account_suspensions_active ON account_suspensions(is_active)');
+    console.log('  Created account_suspensions table');
+  }
+
+  // Create abuse_thresholds table with defaults
+  if (!tableNames.includes('abuse_thresholds')) {
+    db.exec(`
+      CREATE TABLE abuse_thresholds (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          metric TEXT NOT NULL UNIQUE,
+          threshold INTEGER NOT NULL,
+          action TEXT NOT NULL,
+          window_days INTEGER NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('  Created abuse_thresholds table');
+
+    const insertThreshold = db.prepare(`
+      INSERT OR IGNORE INTO abuse_thresholds (metric, threshold, action, window_days)
+      VALUES (?, ?, ?, ?)
+    `);
+    insertThreshold.run('cancellations_per_30d', 5, 'flag', 30);
+    insertThreshold.run('no_shows_per_90d', 3, 'warn', 90);
+    insertThreshold.run('bookings_per_7d', 3, 'flag', 7);
+    insertThreshold.run('duplicate_enquiries_per_24h', 2, 'warn', 1);
+    console.log('  Inserted default abuse thresholds');
+  }
+
+  // Add new indexes - idx_users_abha_id_unique already created in migration above
+  // Partial unique index handles NULL values correctly
+
+  // Add new triggers for updated_at
+  db.exec(`
+    CREATE TRIGGER IF NOT EXISTS update_patient_reports_timestamp
+    AFTER UPDATE ON patient_reports
+    BEGIN
+        UPDATE patient_reports SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+  `);
+  db.exec(`
+    CREATE TRIGGER IF NOT EXISTS update_abuse_thresholds_timestamp
+    AFTER UPDATE ON abuse_thresholds
+    BEGIN
+        UPDATE abuse_thresholds SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+    END;
+  `);
+
+  console.log('Migrations completed');
+}
+
 function initializeDatabase() {
   console.log('Initializing Swasthya Saarthi database...');
 
@@ -15,7 +184,10 @@ function initializeDatabase() {
   // Enable foreign keys
   db.pragma('foreign_keys = ON');
 
-  // Read and execute schema
+  // Run migrations first (adds columns to existing tables)
+  runMigrations(db);
+
+  // Then apply schema (creates new tables, indexes, triggers)
   const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
   db.exec(schema);
 
@@ -219,6 +391,215 @@ function initializeDatabase() {
       const pastDate = new Date(Date.now() - i * 86400000 * 2).toISOString().split('T')[0];
       insertAppt.run(patientAarav.id, drSharma.id, pastDate, '10:00', 'completed', i, 'completed', 0, 4, 500.0, 'Routine consultation', 'Follow-up consultation completed.');
     }
+  }
+
+  // Seed sample patient reports for patient 7 (Aarav Mehta)
+  const patientAaravId = patientAarav?.id;
+  const drSharmaId = drSharma?.id;
+  const drPatelId = drPatel?.id;
+
+  if (patientAaravId && drSharmaId) {
+    const insertReport = db.prepare(`
+      INSERT OR IGNORE INTO patient_reports (patient_id, appointment_id, file_name, original_name, mime_type, file_size, file_path, document_type, description, uploaded_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    // Get some appointment IDs for patient 7 with doctor 1
+    const sampleAppointments = db.prepare(`
+      SELECT id FROM appointments WHERE patient_id = ? AND doctor_id = ? AND status = 'completed' ORDER BY appointment_date DESC LIMIT 5
+    `).all(patientAaravId, drSharmaId);
+
+    if (sampleAppointments.length > 0) {
+      // Sample report 1 - Lab result
+      insertReport.run(
+        patientAaravId,
+        sampleAppointments[0]?.id || null,
+        'a1b2c3d4-lab-results.pdf',
+        'CBC_Lipid_Profile_2024.pdf',
+        'application/pdf',
+        245760,
+        'a1b2c3d4-lab-results.pdf',
+        'lab_result',
+        'Complete blood count and lipid profile from annual checkup',
+        patientAaravId // Self-uploaded by patient
+      );
+
+      // Sample report 2 - Prescription
+      if (sampleAppointments.length > 1) {
+        insertReport.run(
+          patientAaravId,
+          sampleAppointments[1]?.id || null,
+          'e5f6g7h8-prescription.pdf',
+          'Prescription_Cardio_Meds.pdf',
+          'application/pdf',
+          156432,
+          'e5f6g7h8-prescription.pdf',
+          'prescription',
+          'Prescription for hypertension and cholesterol management',
+          drSharmaId // Uploaded by doctor
+        );
+      }
+
+      // Sample report 3 - Imaging
+      if (sampleAppointments.length > 2) {
+        insertReport.run(
+          patientAaravId,
+          sampleAppointments[2]?.id || null,
+          'i9j0k1l2-ecg.jpg',
+          'ECG_Report.jpg',
+          'image/jpeg',
+          892100,
+          'i9j0k1l2-ecg.jpg',
+          'imaging',
+          'ECG showing normal sinus rhythm',
+          drSharmaId // Uploaded by doctor
+        );
+      }
+
+      console.log('Sample patient reports created for patient 7');
+    }
+  }
+
+  // Seed sample symptom assessments for patient 7
+  if (patientAaravId) {
+    const insertAssessment = db.prepare(`
+      INSERT OR IGNORE INTO symptom_assessments (patient_id, appointment_id, session_id, chief_complaint, symptoms_json, severity_score, urgency_level, emergency_flag, emergency_reason, summary_for_doctor, status, completed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const crypto = require('crypto');
+
+    // Assessment 1 - Completed with emergency flag (linked to an appointment)
+    const apptWithSymptoms = db.prepare(`
+      SELECT id FROM appointments WHERE patient_id = ? AND doctor_id = ? AND status = 'completed' ORDER BY appointment_date DESC LIMIT 1
+    `).get(patientAaravId, drSharmaId);
+
+    if (apptWithSymptoms) {
+      const sessionId1 = crypto.randomUUID();
+      const symptoms1 = [
+        { questionId: 'chief_complaint', answer: 'Chest pain and shortness of breath for 2 days', timestamp: '2026-08-20T10:00:00Z' },
+        { questionId: 'body_system', answer: 'chest', timestamp: '2026-08-20T10:01:00Z' },
+        { questionId: 'specific_symptoms', answer: 'Sharp chest pain radiating to left arm, worse with exertion. Shortness of breath on climbing stairs. No palpitations.', timestamp: '2026-08-20T10:02:00Z' },
+        { questionId: 'severity', answer: '8', timestamp: '2026-08-20T10:03:00Z' },
+        { questionId: 'duration', answer: 'days', timestamp: '2026-08-20T10:04:00Z' },
+        { questionId: 'associated', answer: ['fatigue', 'sweating'], timestamp: '2026-08-20T10:05:00Z' },
+        { questionId: 'medications', answer: 'Amlodipine 5mg daily, Atorvastatin 20mg daily', timestamp: '2026-08-20T10:06:00Z' },
+        { questionId: 'allergies', answer: 'Penicillin', timestamp: '2026-08-20T10:07:00Z' },
+        { questionId: 'past_history', answer: 'Hypertension diagnosed 2020, High cholesterol', timestamp: '2026-08-20T10:08:00Z' }
+      ];
+
+      const summary1 = `**Chief Complaint:** Chest pain and shortness of breath for 2 days
+
+**Body System:** chest
+**Severity:** 8/10
+**Duration:** days
+**Urgency Level:** URGENT
+**⚠️ EMERGENCY FLAG:** Emergency keyword detected: "chest pain"
+
+**Symptoms:** Sharp chest pain radiating to left arm, worse with exertion. Shortness of breath on climbing stairs. No palpitations.
+
+**Associated Symptoms:** fatigue, sweating
+
+**Current Medications:** Amlodipine 5mg daily, Atorvastatin 20mg daily
+**Allergies:** Penicillin
+**Past Medical History:** Hypertension diagnosed 2020, High cholesterol
+
+**Recommended Specialty:** Cardiology
+
+*This is an AI-assisted symptom summary for clinical reference only. Not a diagnosis.*`;
+
+      insertAssessment.run(
+        patientAaravId,
+        apptWithSymptoms.id,
+        sessionId1,
+        'Chest pain and shortness of breath for 2 days',
+        JSON.stringify(symptoms1),
+        8,
+        'urgent',
+        1,
+        'Emergency keyword detected: "chest pain"',
+        summary1,
+        'completed',
+        '2026-08-20 10:08:00'
+      );
+    }
+
+    // Assessment 2 - Completed routine (no emergency)
+    const apptWithSymptoms2 = db.prepare(`
+      SELECT id FROM appointments WHERE patient_id = ? AND doctor_id = ? AND status = 'completed' ORDER BY appointment_date DESC LIMIT 1 OFFSET 1
+    `).get(patientAaravId, drSharmaId);
+
+    if (apptWithSymptoms2) {
+      const sessionId2 = crypto.randomUUID();
+      const symptoms2 = [
+        { questionId: 'chief_complaint', answer: 'Routine follow-up for hypertension management', timestamp: '2026-08-15T10:00:00Z' },
+        { questionId: 'body_system', answer: 'general', timestamp: '2026-08-15T10:01:00Z' },
+        { questionId: 'specific_symptoms', answer: 'Feeling well, no specific complaints. Here for regular BP check and medication review.', timestamp: '2026-08-15T10:02:00Z' },
+        { questionId: 'severity', answer: '2', timestamp: '2026-08-15T10:03:00Z' },
+        { questionId: 'duration', answer: 'months', timestamp: '2026-08-15T10:04:00Z' },
+        { questionId: 'associated', answer: ['none'], timestamp: '2026-08-15T10:05:00Z' },
+        { questionId: 'medications', answer: 'Amlodipine 5mg daily, Atorvastatin 20mg daily', timestamp: '2026-08-15T10:06:00Z' },
+        { questionId: 'allergies', answer: 'Penicillin', timestamp: '2026-08-15T10:07:00Z' },
+        { questionId: 'past_history', answer: 'Hypertension diagnosed 2020, High cholesterol', timestamp: '2026-08-15T10:08:00Z' }
+      ];
+
+      const summary2 = `**Chief Complaint:** Routine follow-up for hypertension management
+
+**Body System:** general
+**Severity:** 2/10
+**Duration:** months
+**Urgency Level:** ROUTINE
+
+**Symptoms:** Feeling well, no specific complaints. Here for regular BP check and medication review.
+
+**Associated Symptoms:** None
+
+**Current Medications:** Amlodipine 5mg daily, Atorvastatin 20mg daily
+**Allergies:** Penicillin
+**Past Medical History:** Hypertension diagnosed 2020, High cholesterol
+
+**Recommended Specialty:** General Medicine
+
+*This is an AI-assisted symptom summary for clinical reference only. Not a diagnosis.*`;
+
+      insertAssessment.run(
+        patientAaravId,
+        apptWithSymptoms2.id,
+        sessionId2,
+        'Routine follow-up for hypertension management',
+        JSON.stringify(symptoms2),
+        2,
+        'routine',
+        0,
+        null,
+        summary2,
+        'completed',
+        '2026-08-15 10:08:00'
+      );
+    }
+
+    // Assessment 3 - In progress (not completed)
+    const sessionId3 = crypto.randomUUID();
+    insertAssessment.run(
+      patientAaravId,
+      null,
+      sessionId3,
+      'Mild headache and dizziness',
+      JSON.stringify([
+        { questionId: 'chief_complaint', answer: 'Mild headache and dizziness', timestamp: '2026-09-01T14:00:00Z' },
+        { questionId: 'body_system', answer: 'head', timestamp: '2026-09-01T14:01:00Z' },
+        { questionId: 'specific_symptoms', answer: 'Intermittent headache for 3 days, mild dizziness when standing up quickly', timestamp: '2026-09-01T14:02:00Z' }
+      ]),
+      4,
+      'routine',
+      0,
+      null,
+      null,
+      'in_progress',
+      null
+    );
+
+    console.log('Sample symptom assessments created for patient 7');
   }
 
   console.log('\n✅ Database initialization complete!');

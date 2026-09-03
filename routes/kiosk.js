@@ -5,6 +5,49 @@ const { publishToDoctor, publishToAppointment, publishToAllAdmins } = require('.
 
 const router = express.Router();
 
+// Helper: Check if user is suspended
+function checkSuspension(userId) {
+  const db = getDatabase();
+  return db.prepare(`
+    SELECT * FROM account_suspensions
+    WHERE user_id = ? AND is_active = 1 AND (expires_at IS NULL OR expires_at > datetime('now'))
+    ORDER BY suspended_at DESC LIMIT 1
+  `).get(userId);
+}
+
+// Helper: Find or create patient by phone/email
+function findOrCreatePatient(db, full_name, phone, email) {
+  // Normalize phone number
+  const digitsOnly = phone.replace(/\D/g, '');
+  let formattedPhone;
+  if (digitsOnly.startsWith('91') && digitsOnly.length === 12) {
+    formattedPhone = '+91-' + digitsOnly.slice(2);
+  } else if (digitsOnly.length === 10) {
+    formattedPhone = '+91-' + digitsOnly;
+  } else if (digitsOnly.length === 11 && digitsOnly.startsWith('0')) {
+    formattedPhone = '+91-' + digitsOnly.slice(1);
+  } else if (phone.startsWith('+')) {
+    formattedPhone = '+' + digitsOnly;
+  } else {
+    formattedPhone = digitsOnly.length === 10 ? '+91-' + digitsOnly : phone;
+  }
+
+  let patientUser = db.prepare('SELECT * FROM users WHERE phone = ? OR (email IS NOT NULL AND email = ?)').get(formattedPhone, email || '');
+
+  if (!patientUser) {
+    const generatedEmail = email || ('patient_' + Date.now() + '@kiosk.swasthya.com');
+    const crypto = require('crypto');
+    const randomPassword = crypto.randomBytes(16).toString('base64url');
+    const passwordHash = require('bcryptjs').hashSync(randomPassword, 10);
+    const initials = full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+
+    const userResult = queries.createUser.run(generatedEmail, passwordHash, full_name, formattedPhone, 'patient', initials || '👤');
+    patientUser = queries.findUserById.get(userResult.lastInsertRowid);
+  }
+
+  return { patientUser, formattedPhone };
+}
+
 // Get specialties for Kiosk
 router.get('/specialties', (req, res) => {
   try {
@@ -111,7 +154,7 @@ router.post('/checkin', (req, res) => {
 // Walk-in registration & appointment booking
 router.post('/walkin', (req, res) => {
   try {
-    const { full_name, phone, email, doctor_id, notes, priority_level, priority_reason } = req.body;
+    const { full_name, phone, email, doctor_id, notes, priority_level, priority_reason, abha_id } = req.body;
 
     if (!full_name || !phone || !doctor_id) {
       return res.status(400).json({ error: 'Name, phone, and doctor selection are required' });
@@ -119,38 +162,37 @@ router.post('/walkin', (req, res) => {
 
     const db = getDatabase();
 
-    // Normalize phone number - strip all non-digits, then format as +91-XXXXXXXXXX
-    const digitsOnly = phone.replace(/\D/g, '');
-    let formattedPhone;
-    if (digitsOnly.startsWith('91') && digitsOnly.length === 12) {
-      // Already has 91 prefix (e.g., 919876543210)
-      formattedPhone = '+91-' + digitsOnly.slice(2);
-    } else if (digitsOnly.length === 10) {
-      // Standard 10-digit Indian number
-      formattedPhone = '+91-' + digitsOnly;
-    } else if (digitsOnly.length === 11 && digitsOnly.startsWith('0')) {
-      // Number with leading 0 (e.g., 09876543210)
-      formattedPhone = '+91-' + digitsOnly.slice(1);
-    } else if (phone.startsWith('+')) {
-      // Already has + prefix, normalize
-      formattedPhone = '+' + digitsOnly;
-    } else {
-      // Fallback - use as-is but ensure it has +91 prefix if it looks Indian
-      formattedPhone = digitsOnly.length === 10 ? '+91-' + digitsOnly : phone;
-    }
-
-    let patientUser = db.prepare('SELECT * FROM users WHERE phone = ? OR (email IS NOT NULL AND email = ?)').get(formattedPhone, email || '');
+    // Find or create patient
+    const { patientUser, formattedPhone } = findOrCreatePatient(db, full_name, phone, email);
 
     if (!patientUser) {
-      const generatedEmail = email || ('patient_' + Date.now() + '@kiosk.swasthya.com');
-      // Generate cryptographically secure random password instead of hardcoded value
-      const crypto = require('crypto');
-      const randomPassword = crypto.randomBytes(16).toString('base64url');
-      const passwordHash = require('bcryptjs').hashSync(randomPassword, 10);
-      const initials = full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+      return res.status(500).json({ error: 'Failed to create or find patient user' });
+    }
 
-      const userResult = queries.createUser.run(generatedEmail, passwordHash, full_name, formattedPhone, 'patient', initials || '👤');
-      patientUser = queries.findUserById.get(userResult.lastInsertRowid);
+    // Check if patient is suspended
+    const suspension = checkSuspension(patientUser.id);
+    if (suspension) {
+      return res.status(403).json({
+        error: 'This patient account is currently suspended',
+        suspension: {
+          type: suspension.suspension_type,
+          reason: suspension.reason,
+          expiresAt: suspension.expires_at
+        }
+      });
+    }
+
+    // Handle ABHA ID if provided
+    if (abha_id) {
+      const abhaRegex = /^\d{14}$/;
+      if (!abhaRegex.test(abha_id)) {
+        return res.status(400).json({ error: 'ABHA ID must be a 14-digit number' });
+      }
+      const existingAbha = queries.findUserByAbhaId.get(abha_id);
+      if (existingAbha && existingAbha.id !== patientUser.id) {
+        return res.status(409).json({ error: 'This ABHA ID is already linked to another account' });
+      }
+      queries.updateUserAbha.run(abha_id, 1, new Date().toISOString(), patientUser.id);
     }
 
     const doctor = queries.getDoctorById.get(doctor_id);

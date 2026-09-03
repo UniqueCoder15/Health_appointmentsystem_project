@@ -769,6 +769,18 @@ body.kiosk-mode {
   min-height: 120px !important;
 }
 
+.form-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+.form-input[aria-invalid="true"],
+.form-select[aria-invalid="true"] {
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15) !important;
+}
+
 /* ============================================================================
    Appointment Confirmation
    ========================================================================== */

@@ -129,7 +129,7 @@
 
   <!-- CONSULTATION & PRESCRIPTION MODAL -->
   <div class="modal-overlay" id="rx-modal">
-    <div class="modal-card">
+    <div class="modal-card" style="max-width: 900px;">
       <div class="modal-header">
         <h3>Consultation Notes & Digital Prescription</h3>
         <button class="modal-close" onclick="closePrescriptionModal()">&times;</button>
@@ -137,10 +137,32 @@
       <div class="modal-body">
         <form id="rx-form">
           <input type="hidden" id="rx-appt-id">
-          <div class="form-group">
-            <label class="form-label">Patient Name</label>
-            <input type="text" class="form-input" id="rx-patient-name" value="Aarav Mehta" readonly>
+
+          <!-- Patient Info Section -->
+          <div class="rx-patient-header">
+            <div class="patient-avatar-large" id="rx-patient-avatar">AM</div>
+            <div class="patient-info-main">
+              <div class="patient-name-row">
+                <input type="text" class="form-input" id="rx-patient-name" value="Aarav Mehta" readonly>
+                <span class="badge badge-priority-normal" id="rx-patient-priority">🟢 Normal</span>
+              </div>
+              <div class="patient-meta-row" id="rx-patient-meta">
+                <span>Phone: +1-555-1001</span>
+                <span id="rx-patient-abha" style="display: none;">ABHA: <span id="rx-abha-value"></span></span>
+              </div>
+            </div>
           </div>
+
+          <!-- Quick Action Buttons -->
+          <div class="rx-quick-actions">
+            <button type="button" class="btn btn-outline btn-sm" onclick="viewPatientReports()" id="rx-view-reports-btn">
+              📄 View Medical Reports
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="viewSymptomAssessment()" id="rx-view-symptoms-btn">
+              🩺 View Symptom Assessment
+            </button>
+          </div>
+
           <div class="form-group">
             <label class="form-label">Diagnosis</label>
             <input type="text" class="form-input" id="rx-diagnosis" placeholder="e.g. Mild Hypertension, Routine ECG normal">
@@ -154,6 +176,18 @@
             <textarea class="form-textarea" id="rx-notes" rows="2" placeholder="Internal clinical observations..."></textarea>
           </div>
         </form>
+
+        <!-- Reports Modal Content (injected dynamically) -->
+        <div id="rx-reports-section" style="display: none;">
+          <h4>📄 Medical Reports</h4>
+          <div class="reports-grid" id="rx-reports-grid"></div>
+        </div>
+
+        <!-- Symptom Assessment Section (injected dynamically) -->
+        <div id="rx-symptoms-section" style="display: none;">
+          <h4>🩺 Symptom Assessment Summary</h4>
+          <div id="rx-symptoms-content"></div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closePrescriptionModal()">Cancel</button>

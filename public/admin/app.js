@@ -5,8 +5,73 @@ let state = {
   stats: null,
   doctors: [],
   appointments: [],
-  specialties: []
+  specialties: [],
+  abuseThresholds: [],
+  flaggedUsers: [],
+  activeSuspensions: []
 };
+
+let adminEventSource = null;
+
+function startAdminSSE() {
+  stopAdminSSE();
+  if (!state.token) return;
+
+  const url = `/api/admin/stream?token=${encodeURIComponent(state.token)}`;
+  adminEventSource = new EventSource(url);
+
+  adminEventSource.addEventListener('overview-update', (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      handleAdminNotification(data);
+    } catch (err) {
+      console.error('Admin SSE parse error:', err);
+    }
+  });
+
+  adminEventSource.onerror = () => {
+    // Auto-reconnect via retry header
+  };
+}
+
+function stopAdminSSE() {
+  if (adminEventSource) {
+    adminEventSource.close();
+    adminEventSource = null;
+  }
+}
+
+function handleAdminNotification(data) {
+  console.log('Admin notification:', data);
+
+  switch (data.type) {
+    case 'abuse-flag-raised':
+      showToast('⚠️ Abuse Flag Raised', `Patient ${data.userName} flagged for ${data.metric}: ${data.count}/${data.threshold}`, 'warning');
+      fetchAbuseData();
+      break;
+    case 'user-suspended':
+      showToast('🔒 User Suspended', `${data.userName} suspended (${data.suspensionType})`, 'error');
+      fetchAbuseData();
+      break;
+    case 'user-unsuspended':
+      showToast('🔓 Suspension Lifted', `${data.userName} suspension lifted`, 'success');
+      fetchAbuseData();
+      break;
+    case 'report-uploaded':
+      showToast('📄 New Report', `Report uploaded by ${data.userName}`, 'info');
+      break;
+    case 'symptom-assessment-completed':
+      showToast('🩺 Assessment Completed', `${data.userName} completed symptom assessment`, 'info');
+      break;
+    case 'abha-linked':
+      showToast('🆔 ABHA Linked', `Patient ${data.userName} linked ABHA ID: ${data.abhaId}`, 'info');
+      break;
+    case 'appointment-changed':
+      // Refresh appointments when queue changes
+      fetchAdminAppointments();
+      break;
+  }
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   initAdmin();
@@ -15,6 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
 async function initAdmin() {
   if (state.token) {
     await fetchAdminData();
+    startAdminSSE();
   } else {
     openAdminLoginModal();
   }
@@ -25,6 +91,7 @@ async function fetchAdminData() {
   await fetchAdminDoctors();
   await fetchAdminAppointments();
   await fetchAdminSpecialties();
+  await fetchAbuseData();
 }
 
 async function fetchStats() {
@@ -214,6 +281,9 @@ function switchAdminTab(tabId) {
     document.getElementById('tab-admin-appointments').style.display = 'block';
   } else if (tabId === 'admin-specialties') {
     document.getElementById('tab-admin-specialties').style.display = 'block';
+  } else if (tabId === 'admin-abuse') {
+    document.getElementById('tab-admin-abuse').style.display = 'block';
+    fetchAbuseData();
   }
 }
 
@@ -565,4 +635,516 @@ function logoutAdmin() {
   state.token = null;
   localStorage.removeItem('mo_admin_token');
   openAdminLoginModal();
+}
+
+// ===== ABUSE MONITORING FUNCTIONS =====
+
+async function fetchAbuseData() {
+  try {
+    await Promise.all([
+      fetchAbuseThresholds(),
+      fetchFlaggedUsers(),
+      fetchActiveSuspensions()
+    ]);
+  } catch (err) {
+    console.error('Fetch abuse data error:', err);
+  }
+}
+
+async function fetchAbuseThresholds() {
+  try {
+    const res = await fetch('/api/abuse/thresholds', {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      state.abuseThresholds = data.thresholds || [];
+      renderThresholdsTable();
+    }
+  } catch (err) {
+    console.error('Fetch abuse thresholds error:', err);
+  }
+}
+
+async function fetchFlaggedUsers() {
+  try {
+    const res = await fetch('/api/abuse/flagged-users', {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      state.flaggedUsers = data.flaggedUsers || [];
+      renderFlaggedUsersTable();
+    }
+  } catch (err) {
+    console.error('Fetch flagged users error:', err);
+  }
+}
+
+async function fetchActiveSuspensions() {
+  try {
+    const res = await fetch('/api/abuse/suspensions', {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      state.activeSuspensions = data.suspensions || [];
+      renderSuspensionsTable();
+    }
+  } catch (err) {
+    console.error('Fetch active suspensions error:', err);
+  }
+}
+
+function renderThresholdsTable() {
+  const container = document.getElementById('thresholds-table');
+  if (!container) return;
+
+  const metricLabels = {
+    'cancellations_per_30d': 'Cancellations per 30 days',
+    'no_shows_per_90d': 'No-shows per 90 days',
+    'bookings_per_7d': 'Bookings per 7 days',
+    'duplicate_enquiries_per_24h': 'Duplicate enquiries per 24 hours'
+  };
+
+  const actionLabels = {
+    'flag': '🚩 Flag Only',
+    'warn': '⚠️ Warn Patient',
+    'suspend_temporary': '⏸️ Temporary Suspension',
+    'suspend_permanent': '🚫 Permanent Suspension'
+  };
+
+  container.innerHTML = `
+    <table class="priority-table">
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>Threshold</th>
+          <th>Window (Days)</th>
+          <th>Action</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${state.abuseThresholds.map(t => `
+          <tr>
+            <td><strong>${metricLabels[t.metric] || t.metric}</strong></td>
+            <td><input type="number" class="form-input form-input-sm" value="${t.threshold}" min="1" max="100" data-metric="${t.metric}" onchange="updateThresholdValue('${t.metric}', 'threshold', this.value)"></td>
+            <td><input type="number" class="form-input form-input-sm" value="${t.window_days}" min="1" max="365" data-metric="${t.metric}" onchange="updateThresholdValue('${t.metric}', 'window_days', this.value)"></td>
+            <td>
+              <select class="form-select form-select-sm" data-metric="${t.metric}" onchange="updateThresholdValue('${t.metric}', 'action', this.value)">
+                ${Object.entries(actionLabels).map(([val, label]) => `
+                  <option value="${val}" ${t.action === val ? 'selected' : ''}>${label}</option>
+                `).join('')}
+              </select>
+            </td>
+            <td><button class="btn btn-outline btn-sm" onclick="saveThreshold('${t.metric}')">Save</button></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderFlaggedUsersTable() {
+  const container = document.getElementById('flagged-users-table');
+  if (!container) return;
+
+  if (state.flaggedUsers.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 3rem; color: #64748b;">
+        <div style="font-size: 3rem;">✅</div>
+        <p style="margin-top: 1rem;">No flagged patients. All accounts are within normal thresholds.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <table class="priority-table">
+      <thead>
+        <tr>
+          <th>Patient</th>
+          <th>Contact</th>
+          <th>Flags Triggered</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${state.flaggedUsers.map(u => `
+          <tr>
+            <td>
+              <strong>${u.user.full_name}</strong>
+              <br><small style="color: #64748b;">ID: ${u.user.id}</small>
+            </td>
+            <td>
+              ${u.user.email}<br>
+              ${u.user.phone || 'N/A'}
+            </td>
+            <td>
+              ${u.flags.map(f => `
+                <span class="badge badge-priority-critical" style="margin: 0.15rem; font-size: 0.7rem;">
+                  ${f.metric.replace('_', ' ')}: ${f.count}/${f.threshold} → ${f.action}
+                </span>
+              `).join('')}
+            </td>
+            <td>
+              ${u.isSuspended ?
+                `<span class="badge badge-priority-critical">🔒 ${u.suspension.suspension_type.toUpperCase()}</span>` :
+                '<span class="badge badge-waiting">⚠️ FLAGGED</span>'
+              }
+            </td>
+            <td>
+              ${!u.isSuspended ?
+                `<button class="btn btn-danger btn-sm" onclick="openSuspendModal(${u.user.id}, '${u.user.full_name.replace(/'/g, "\\'")}')">Suspend</button>` :
+                `<button class="btn btn-primary btn-sm" onclick="openUnsuspendModal(${u.user.id}, '${u.user.full_name.replace(/'/g, "\\'")}', ${u.suspension.id})">Unsuspend</button>`
+              }
+              <button class="btn btn-outline btn-sm" onclick="viewUserDetail(${u.user.id})">Details</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderSuspensionsTable() {
+  const container = document.getElementById('suspensions-table');
+  if (!container) return;
+
+  if (state.activeSuspensions.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 3rem; color: #64748b;">
+        <div style="font-size: 3rem;">🔓</div>
+        <p style="margin-top: 1rem;">No active suspensions.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <table class="priority-table">
+      <thead>
+        <tr>
+          <th>Patient</th>
+          <th>Type</th>
+          <th>Reason</th>
+          <th>Suspended By</th>
+          <th>Suspended At</th>
+          <th>Expires</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${state.activeSuspensions.map(s => `
+          <tr>
+            <td>
+              <strong>${s.user_name}</strong>
+              <br><small style="color: #64748b;">${s.user_email}</small>
+            </td>
+            <td>
+              <span class="badge ${s.suspension_type === 'permanent' ? 'badge-priority-critical' : (s.suspension_type === 'temporary' ? 'badge-priority-urgent' : 'badge-priority-low')}">
+                ${s.suspension_type.toUpperCase()}
+              </span>
+            </td>
+            <td>${s.reason}</td>
+            <td>${s.suspended_by_name || 'System'}</td>
+            <td>${formatDateTime(s.suspended_at)}</td>
+            <td>
+              ${s.expires_at ? formatDateTime(s.expires_at) : '<span class="badge badge-priority-critical">PERMANENT</span>'}
+            </td>
+            <td>
+              <button class="btn btn-primary btn-sm" onclick="openUnsuspendModal(${s.user_id}, '${s.user_name.replace(/'/g, "\\'")}', ${s.id})">Lift</button>
+              <button class="btn btn-outline btn-sm" onclick="viewUserDetail(${s.user_id})">Details</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function updateThresholdValue(metric, field, value) {
+  // Find and update local state
+  const threshold = state.abuseThresholds.find(t => t.metric === metric);
+  if (threshold) {
+    threshold[field] = field === 'threshold' || field === 'window_days' ? parseInt(value) : value;
+  }
+}
+
+async function saveThreshold(metric) {
+  const threshold = state.abuseThresholds.find(t => t.metric === metric);
+  if (!threshold) return;
+
+  try {
+    const res = await fetch('/api/abuse/thresholds', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.token}`
+      },
+      body: JSON.stringify({
+        metric: threshold.metric,
+        threshold: threshold.threshold,
+        action: threshold.action,
+        window_days: threshold.window_days
+      })
+    });
+
+    if (res.ok) {
+      showToast('Success', 'Threshold updated');
+      await fetchAbuseThresholds();
+    } else {
+      showToast('Error', 'Failed to update threshold');
+    }
+  } catch (err) {
+    console.error('Save threshold error:', err);
+    showToast('Error', 'Server error');
+  }
+}
+
+function openSuspendModal(userId, userName) {
+  document.getElementById('suspend-user-id').value = userId;
+  document.getElementById('suspend-user-name').value = userName;
+  document.getElementById('suspend-type').value = 'temporary';
+  document.getElementById('suspend-reason').value = '';
+  document.getElementById('suspend-expires-group').style.display = 'block';
+
+  // Set default expiry to 7 days from now
+  const defaultExpiry = new Date();
+  defaultExpiry.setDate(defaultExpiry.getDate() + 7);
+  document.getElementById('suspend-expires-at').value = defaultExpiry.toISOString().slice(0, 16);
+
+  document.getElementById('suspend-type').onchange = function() {
+    document.getElementById('suspend-expires-group').style.display = this.value === 'temporary' ? 'block' : 'none';
+  };
+
+  document.getElementById('suspend-user-modal').classList.add('active');
+}
+
+function closeSuspendModal() {
+  document.getElementById('suspend-user-modal').classList.remove('active');
+}
+
+async function submitSuspendUser() {
+  const userId = parseInt(document.getElementById('suspend-user-id').value);
+  const suspensionType = document.getElementById('suspend-type').value;
+  const reason = document.getElementById('suspend-reason').value;
+  const expiresAt = suspensionType === 'temporary' ? document.getElementById('suspend-expires-at').value : null;
+
+  if (!reason.trim()) {
+    showToast('Error', 'Please enter a reason');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/abuse/suspend', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.token}`
+      },
+      body: JSON.stringify({ user_id: userId, suspension_type: suspensionType, reason, expires_at: expiresAt })
+    });
+
+    if (res.ok) {
+      showToast('Success', 'User suspended');
+      closeSuspendModal();
+      await fetchAbuseData();
+    } else {
+      const data = await res.json();
+      showToast('Error', data.error || 'Failed to suspend user');
+    }
+  } catch (err) {
+    console.error('Suspend user error:', err);
+    showToast('Error', 'Server error');
+  }
+}
+
+function openUnsuspendModal(userId, userName, suspensionId) {
+  document.getElementById('unsuspend-user-id').value = userId;
+  document.getElementById('unsuspend-suspension-id').value = suspensionId;
+  document.getElementById('unsuspend-user-name').value = userName;
+  document.getElementById('unsuspend-lift-reason').value = '';
+
+  // Find current suspension details
+  const suspension = state.activeSuspensions.find(s => s.id === suspensionId);
+  if (suspension) {
+    document.getElementById('unsuspend-current').value = `${suspension.suspension_type.toUpperCase()} - ${suspension.reason}`;
+  }
+
+  document.getElementById('unsuspend-user-modal').classList.add('active');
+}
+
+function closeUnsuspendModal() {
+  document.getElementById('unsuspend-user-modal').classList.remove('active');
+}
+
+async function submitUnsuspendUser() {
+  const userId = parseInt(document.getElementById('unsuspend-user-id').value);
+  const suspensionId = parseInt(document.getElementById('unsuspend-suspension-id').value);
+  const liftReason = document.getElementById('unsuspend-lift-reason').value;
+
+  if (!liftReason.trim()) {
+    showToast('Error', 'Please enter a reason for lifting suspension');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/abuse/unsuspend', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.token}`
+      },
+      body: JSON.stringify({ user_id: userId, lift_reason: liftReason })
+    });
+
+    if (res.ok) {
+      showToast('Success', 'Suspension lifted');
+      closeUnsuspendModal();
+      await fetchAbuseData();
+    } else {
+      const data = await res.json();
+      showToast('Error', data.error || 'Failed to lift suspension');
+    }
+  } catch (err) {
+    console.error('Unsuspend user error:', err);
+    showToast('Error', 'Server error');
+  }
+}
+
+async function viewUserDetail(userId) {
+  try {
+    const res = await fetch(`/api/abuse/user/${userId}`, {
+      headers: { 'Authorization': `Bearer ${state.token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      renderUserDetailModal(data);
+      document.getElementById('user-detail-modal').classList.add('active');
+    }
+  } catch (err) {
+    console.error('View user detail error:', err);
+    showToast('Error', 'Failed to load user details');
+  }
+}
+
+function renderUserDetailModal(data) {
+  const container = document.getElementById('user-detail-content');
+  const { user, flags, suspension, suspensionHistory, activity } = data;
+
+  container.innerHTML = `
+    <div class="user-detail-header">
+      <div class="user-avatar-large" style="width: 80px; height: 80px; font-size: 1.5rem;">${getInitials(user.full_name)}</div>
+      <div>
+        <h3 style="margin: 0;">${user.full_name}</h3>
+        <p style="margin: 0.25rem 0 0; color: #64748b;">${user.email} • ${user.phone || 'N/A'}</p>
+        <p style="margin: 0.25rem 0 0; font-size: 0.8rem; color: #64748b;">Registered: ${formatDate(user.created_at)}</p>
+      </div>
+    </div>
+
+    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e2e8f0;">
+      <h4>⚠️ Active Flags</h4>
+      ${flags.length > 0 ? `
+        <div class="flags-list">
+          ${flags.map(f => `
+            <div class="flag-item" style="padding: 0.75rem; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; margin-bottom: 0.5rem;">
+              <div style="display: flex; justify-content: space-between;">
+                <strong>${f.metric.replace('_', ' ')}</strong>
+                <span class="badge badge-priority-critical">${f.action}</span>
+              </div>
+              <div style="margin-top: 0.25rem; color: #64748b; font-size: 0.85rem;">
+                Current: ${f.count} / Threshold: ${f.threshold} (${f.windowDays} day window)
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      ` : '<p style="color: #22c55e;">No active flags - within all thresholds</p>'}
+    </div>
+
+    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e2e8f0;">
+      <h4>🔒 Suspension Status</h4>
+      ${suspension ? `
+        <div class="suspension-detail" style="padding: 1rem; background: ${suspension.suspension_type === 'permanent' ? '#fef2f2' : '#fffbeb'}; border: 1px solid ${suspension.suspension_type === 'permanent' ? '#fecaca' : '#fde68a'}; border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <strong>Type: ${suspension.suspension_type.toUpperCase()}</strong>
+            <span class="badge ${suspension.suspension_type === 'permanent' ? 'badge-priority-critical' : 'badge-priority-urgent'}">ACTIVE</span>
+          </div>
+          <p style="margin: 0.5rem 0;"><strong>Reason:</strong> ${suspension.reason}</p>
+          <p style="margin: 0.5rem 0;"><strong>Suspended By:</strong> ${suspension.suspended_by_name || 'System'}</p>
+          <p style="margin: 0.5rem 0;"><strong>Suspended At:</strong> ${formatDateTime(suspension.suspended_at)}</p>
+          <p style="margin: 0.5rem 0;"><strong>Expires:</strong> ${suspension.expires_at ? formatDateTime(suspension.expires_at) : 'PERMANENT'}</p>
+        </div>
+      ` : '<p style="color: #22c55e;">No active suspension</p>'}
+    </div>
+
+    ${suspensionHistory && suspensionHistory.length > 0 ? `
+    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e2e8f0;">
+      <h4>📜 Suspension History</h4>
+      <table class="priority-table" style="font-size: 0.85rem;">
+        <thead>
+          <tr><th>Type</th><th>Reason</th><th>Suspended By</th><th>Suspended At</th><th>Lifted At</th><th>Lifted By</th></tr>
+        </thead>
+        <tbody>
+          ${suspensionHistory.map(h => `
+            <tr>
+              <td>${h.suspension_type.toUpperCase()}</td>
+              <td>${h.reason}</td>
+              <td>${h.suspended_by_name || 'System'}</td>
+              <td>${formatDateTime(h.suspended_at)}</td>
+              <td>${h.lifted_at ? formatDateTime(h.lifted_at) : '—'}</td>
+              <td>${h.lifted_by_name || '—'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+    ` : ''}
+
+    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e2e8f0;">
+      <h4>📋 Recent Activity (Last 20)</h4>
+      ${activity && activity.length > 0 ? `
+        <table class="priority-table" style="font-size: 0.85rem;">
+          <thead>
+            <tr><th>Type</th><th>Appointment</th><th>Details</th><th>Date</th></tr>
+          </thead>
+          <tbody>
+            ${activity.slice(0, 20).map(a => `
+              <tr>
+                <td>${a.activity_type.replace('_', ' ')}</td>
+                <td>${a.appointment_id ? `#${a.appointment_id}` : '—'}</td>
+                <td>${a.metadata_json ? JSON.parse(a.metadata_json).reason || '—' : '—'}</td>
+                <td>${formatDateTime(a.created_at)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : '<p style="color: #64748b;">No recent activity</p>'}
+    </div>
+  `;
+}
+
+function closeUserDetailModal() {
+  document.getElementById('user-detail-modal').classList.remove('active');
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function formatDateTime(dateStr) {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function getInitials(name) {
+  if (!name) return 'AJ';
+  const parts = name.trim().split(' ');
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.substring(0, 2).toUpperCase();
 }

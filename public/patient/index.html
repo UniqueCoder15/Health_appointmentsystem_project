@@ -432,6 +432,12 @@
         <a href="#" class="nav-item" onclick="switchDashTab('dash-notifications')">
           <span class="nav-icon">🔔</span> Notifications
         </a>
+        <a href="#" class="nav-item" onclick="switchDashTab('dash-reports')">
+          <span class="nav-icon">📄</span> My Reports
+        </a>
+        <a href="#" class="nav-item" onclick="switchDashTab('dash-symptoms')">
+          <span class="nav-icon">🤖</span> Symptom Checker
+        </a>
         <a href="#" class="nav-item" onclick="switchDashTab('dash-profile')">
           <span class="nav-icon">👤</span> Profile
         </a>
@@ -590,6 +596,99 @@
         </div>
       </div>
 
+      <!-- Suspension Banner (hidden by default) -->
+      <div id="suspension-banner" class="suspension-banner" style="display: none;">
+        <div class="suspension-banner-content">
+          <div class="suspension-icon">⚠️</div>
+          <div class="suspension-text">
+            <strong id="suspension-title">Account Suspended</strong>
+            <span id="suspension-message">Your account has been temporarily suspended due to excessive cancellations.</span>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="hideSuspensionBanner()">Dismiss</button>
+        </div>
+      </div>
+
+      <!-- Reports Tab -->
+      <div id="tab-dash-reports" class="dash-tab-content" style="display: none;">
+        <div class="section-title-bar">
+          <h2>My Medical Reports</h2>
+          <button class="btn btn-primary" onclick="openUploadReportModal()">+ Upload Report</button>
+        </div>
+
+        <div class="filter-tabs-row">
+          <button class="filter-btn active" onclick="filterReports('all')">All</button>
+          <button class="filter-btn" onclick="filterReports('lab_result')">Lab Results</button>
+          <button class="filter-btn" onclick="filterReports('prescription')">Prescriptions</button>
+          <button class="filter-btn" onclick="filterReports('imaging')">Imaging</button>
+          <button class="filter-btn" onclick="filterReports('discharge_summary')">Discharge Summaries</button>
+          <button class="filter-btn" onclick="filterReports('other')">Other</button>
+        </div>
+
+        <div class="reports-grid" id="reports-grid">
+          <!-- Populated by JS -->
+        </div>
+
+        <div id="reports-empty" style="display: none; padding: 3rem; text-align: center; color: #64748b;">
+          <div style="font-size: 3rem;">📄</div>
+          <h3 style="margin-top: 1rem;">No reports yet</h3>
+          <p>Upload your medical documents to keep them organized and accessible.</p>
+          <button class="btn btn-primary" style="margin-top: 1rem;" onclick="openUploadReportModal()">Upload First Report</button>
+        </div>
+      </div>
+
+      <!-- Symptom Checker Tab -->
+      <div id="tab-dash-symptoms" class="dash-tab-content" style="display: none;">
+        <div class="section-title-bar">
+          <h2>🤖 AI Symptom Checker</h2>
+          <span style="font-size: 0.85rem; color: #64748b;">Guided symptom collection for your doctor — NOT a diagnosis tool</span>
+        </div>
+
+        <div class="symptom-disclaimer">
+          <strong>⚠️ Important:</strong> This tool helps you organize your symptoms for your doctor's visit. It does NOT provide medical diagnoses. For emergencies, call 112 or visit the nearest ER.
+        </div>
+
+        <div id="symptom-welcome" class="symptom-welcome-card">
+          <div class="symptom-welcome-icon">🩺</div>
+          <h3>Start a Symptom Assessment</h3>
+          <p>Answer a series of guided questions about your symptoms. We'll create a structured summary you can share with your doctor during your appointment.</p>
+          <button class="btn btn-primary btn-lg" onclick="startSymptomAssessment()">Begin Assessment</button>
+        </div>
+
+        <div id="symptom-chat" class="symptom-chat-container" style="display: none;">
+          <div class="symptom-progress">
+            <div class="progress-bar">
+              <div class="progress-fill" id="symptom-progress-fill" style="width: 0%;"></div>
+            </div>
+            <div class="progress-text" id="symptom-progress-text">Question 1 of 10</div>
+          </div>
+
+          <div class="symptom-chat-messages" id="symptom-chat-messages">
+            <!-- Messages populated by JS -->
+          </div>
+
+          <div class="symptom-input-area" id="symptom-input-area">
+            <!-- Dynamic input based on question type -->
+          </div>
+        </div>
+
+        <div id="symptom-summary" class="symptom-summary-container" style="display: none;">
+          <h3>Assessment Complete</h3>
+          <p>Your symptom summary has been generated. You can share this with your doctor.</p>
+          <div class="summary-content" id="summary-content"></div>
+          <div class="summary-actions">
+            <button class="btn btn-primary" onclick="saveSymptomAssessment()">Save & Share with Doctor</button>
+            <button class="btn btn-outline" onclick="startNewSymptomAssessment()">Start New Assessment</button>
+          </div>
+        </div>
+
+        <div class="symptom-history" style="margin-top: 2rem;">
+          <h3>Previous Assessments</h3>
+          <div class="appts-list-container" id="symptom-history-list">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+
       <!-- Profile Tab -->
       <div id="tab-dash-profile" class="dash-tab-content" style="display: none;">
         <h2>Patient Profile</h2>
@@ -606,7 +705,15 @@
             <label class="form-label">Phone Number</label>
             <input type="text" class="form-input" id="profile-phone" value="+91-98765-43210">
           </div>
-          <button class="btn btn-primary" onclick="alert('Profile updated successfully!')">Save Changes</button>
+          <div class="form-group">
+            <label class="form-label">ABHA ID <span class="optional">(Optional)</span></label>
+            <div class="abha-input-wrapper">
+              <input type="text" class="form-input" id="profile-abha" placeholder="Enter 14-digit ABHA ID" maxlength="14" inputmode="numeric" autocomplete="off">
+              <span class="abha-validation-hint" id="abha-hint">14-digit unique health ID</span>
+            </div>
+            <small class="form-hint" id="abha-status"></small>
+          </div>
+          <button class="btn btn-primary" onclick="saveProfile()">Save Changes</button>
         </div>
       </div>
     </main>
@@ -759,6 +866,185 @@
     </div>
   </div>
 
+  <!-- UPLOAD REPORT MODAL -->
+  <div class="modal-overlay" id="upload-report-modal">
+    <div class="modal-card" style="max-width: 560px;">
+      <div class="modal-header">
+        <h3>Upload Medical Report</h3>
+        <button class="modal-close" onclick="closeUploadReportModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="upload-report-form" enctype="multipart/form-data">
+          <div class="form-group">
+            <label class="form-label">Report File <span class="required">*</span></label>
+            <div class="file-drop-zone" id="file-drop-zone" onclick="document.getElementById('report-file').click()">
+              <div class="drop-zone-icon">📄</div>
+              <div class="drop-zone-text">Drag & drop a PDF, JPG, or PNG file here</div>
+              <div class="drop-zone-hint">or click to browse</div>
+              <input type="file" id="report-file" accept=".pdf,.jpg,.jpeg,.png" style="display: none;">
+            </div>
+            <div id="file-preview" class="file-preview" style="display: none;"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Document Type <span class="required">*</span></label>
+            <select class="form-select" id="report-doc-type" required>
+              <option value="">Select document type</option>
+              <option value="lab_result">🧪 Lab Result</option>
+              <option value="prescription">💊 Prescription</option>
+              <option value="imaging">🖼️ Imaging (X-ray, MRI, CT, etc.)</option>
+              <option value="discharge_summary">🏥 Discharge Summary</option>
+              <option value="other">📄 Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Description (optional)</label>
+            <textarea class="form-textarea" id="report-description" rows="2" placeholder="Brief description, e.g., 'CBC blood test results' or 'Chest X-ray for persistent cough'"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Related Appointment (optional)</label>
+            <select class="form-select" id="report-appointment">
+              <option value="">No appointment linked</option>
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeUploadReportModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitReportUpload()" id="upload-report-submit" disabled>Upload Report</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REPORT VIEW MODAL -->
+  <div class="modal-overlay" id="view-report-modal">
+    <div class="modal-card" style="max-width: 720px; max-height: 90vh;">
+      <div class="modal-header">
+        <h3 id="view-report-title">Report Details</h3>
+        <button class="modal-close" onclick="closeViewReportModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 0; overflow: hidden;">
+        <div id="view-report-content">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeViewReportModal()">Close</button>
+        <button class="btn btn-primary" id="download-report-btn" onclick="downloadReport()">⬇️ Download</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHATBOT WIDGET -->
+  <div id="chatbot-widget" class="chatbot-widget">
+    <!-- Floating Chat Button -->
+    <button class="chatbot-float-btn" id="chatbot-float-btn" aria-label="Open Health Assistant" onclick="toggleChatbot()">
+      <span class="chatbot-icon">💬</span>
+      <span class="chatbot-tooltip">Health Assistant</span>
+      <span class="chatbot-badge" id="chatbot-badge" style="display: none;">1</span>
+    </button>
+
+    <!-- Chat Panel -->
+    <div class="chatbot-panel" id="chatbot-panel" style="display: none;">
+      <div class="chatbot-header">
+        <div class="chatbot-header-info">
+          <div class="chatbot-avatar">🤖</div>
+          <div>
+            <div class="chatbot-title">Swasthya Saarthi Health Assistant</div>
+            <div class="chatbot-status">Online • Ready to help</div>
+          </div>
+        </div>
+        <div class="chatbot-header-actions">
+          <button class="chatbot-icon-btn" onclick="clearChatbotHistory()" aria-label="Clear conversation" title="Clear conversation">🗑️</button>
+          <button class="chatbot-icon-btn" onclick="toggleChatbot()" aria-label="Close chat" title="Close">✕</button>
+        </div>
+      </div>
+
+      <div class="chatbot-messages" id="chatbot-messages">
+        <!-- Messages will be populated here -->
+        <div class="chatbot-welcome-message">
+          <div class="chatbot-message bot">
+            <div class="chatbot-message-avatar">🤖</div>
+            <div class="chatbot-message-content">
+              <div class="chatbot-message-text">Hello! I'm your Swasthya Saarthi Health Assistant. 👋</div>
+              <div class="chatbot-message-text">I can help you with:</div>
+              <ul class="chatbot-capabilities">
+                <li>🩺 General health questions & medical term explanations</li>
+                <li>🏥 Finding the right specialist for your symptoms</li>
+                <li>📱 Using Swasthya Saarthi (booking, queue tracking, reports)</li>
+                <li>📋 Preparing for doctor visits (organizing symptoms)</li>
+                <li>🌿 Wellness & prevention tips</li>
+              </ul>
+              <div class="chatbot-disclaimer">⚠️ I am an AI assistant, not a doctor. This information is for educational purposes only. Please consult a healthcare professional for medical advice, diagnosis, or treatment.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chatbot-typing-indicator" id="chatbot-typing-indicator" style="display: none;">
+        <div class="chatbot-typing-dots">
+          <span></span><span></span><span></span>
+        </div>
+        <span>Health Assistant is typing...</span>
+      </div>
+
+      <div class="chatbot-input-area">
+        <form id="chatbot-form" onsubmit="sendChatbotMessage(event)">
+          <div class="chatbot-input-wrapper">
+            <input type="text" id="chatbot-input" class="chatbot-input" placeholder="Ask me about symptoms, appointments, specialists..." autocomplete="off" aria-label="Your message">
+            <button type="submit" class="chatbot-send-btn" aria-label="Send message">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+            </button>
+          </div>
+        </form>
+        <div class="chatbot-footer-hint">Press Enter to send • Shift+Enter for new line</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SYMPTOM CHECKER MODAL (Alternative to tab) -->
+  <div class="modal-overlay" id="symptom-checker-modal">
+    <div class="modal-card" style="max-width: 640px; max-height: 90vh;">
+      <div class="modal-header">
+        <h3>🤖 AI Symptom Checker</h3>
+        <button class="modal-close" onclick="closeSymptomCheckerModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+        <div class="symptom-disclaimer" style="margin-bottom: 1rem;">
+          <strong>⚠️ Important:</strong> This tool helps you organize your symptoms for your doctor's visit. It does NOT provide medical diagnoses. For emergencies, call 112 or visit the nearest ER.
+        </div>
+        <div id="modal-symptom-welcome" class="symptom-welcome-card">
+          <div class="symptom-welcome-icon">🩺</div>
+          <h3>Start a Symptom Assessment</h3>
+          <p>Answer a series of guided questions about your symptoms. We'll create a structured summary you can share with your doctor during your appointment.</p>
+          <button class="btn btn-primary btn-lg" onclick="startSymptomAssessmentModal()">Begin Assessment</button>
+        </div>
+        <div id="modal-symptom-chat" class="symptom-chat-container" style="display: none;">
+          <div class="symptom-progress">
+            <div class="progress-bar">
+              <div class="progress-fill" id="modal-symptom-progress-fill" style="width: 0%;"></div>
+            </div>
+            <div class="progress-text" id="modal-symptom-progress-text">Question 1 of 10</div>
+          </div>
+          <div class="symptom-chat-messages" id="modal-symptom-chat-messages"></div>
+          <div class="symptom-input-area" id="modal-symptom-input-area"></div>
+        </div>
+        <div id="modal-symptom-summary" class="symptom-summary-container" style="display: none;">
+          <h3>Assessment Complete</h3>
+          <p>Your symptom summary has been generated. You can share this with your doctor.</p>
+          <div class="summary-content" id="modal-summary-content"></div>
+          <div class="summary-actions">
+            <button class="btn btn-primary" onclick="saveSymptomAssessmentModal()">Save & Share with Doctor</button>
+            <button class="btn btn-outline" onclick="startNewSymptomAssessmentModal()">Start New Assessment</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" style="width: 100%;" onclick="closeSymptomCheckerModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
   <script src="/patient/app.js"></script>
 </body>
 </html>

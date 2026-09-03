@@ -56,6 +56,9 @@
         <a href="#" class="nav-item" onclick="switchAdminTab('admin-specialties')">
           <span class="nav-icon">🩺</span> Specialties Manager
         </a>
+        <a href="#" class="nav-item" onclick="switchAdminTab('admin-abuse')">
+          <span class="nav-icon">🛡️</span> Abuse Monitoring
+        </a>
       </nav>
 
       <div class="dash-sidebar-footer">
@@ -271,6 +274,41 @@
           <!-- Populated via JS -->
         </div>
       </div>
+
+      <!-- Abuse Monitoring Tab -->
+      <div id="tab-admin-abuse" class="dash-tab-content" style="display: none;">
+        <div class="section-title-bar">
+          <h2>🛡️ Abuse Monitoring & Suspension Management</h2>
+          <span style="font-size: 0.85rem; color: #64748b;">Track cancellations, no-shows, and appointment abuse patterns</span>
+        </div>
+
+        <!-- Thresholds Configuration -->
+        <div class="config-section">
+          <h3>Abuse Thresholds Configuration</h3>
+          <div class="thresholds-table" id="thresholds-table">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Flagged Users -->
+        <div class="config-section" style="grid-column: 1 / -1; margin-top: 2rem;">
+          <div class="section-title-bar" style="margin-bottom: 1rem;">
+            <h3>⚠️ Flagged Patients</h3>
+            <button class="btn btn-outline btn-sm" onclick="fetchAbuseData()">🔄 Refresh</button>
+          </div>
+          <div class="flagged-users-table" id="flagged-users-table">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Active Suspensions -->
+        <div class="config-section" style="grid-column: 1 / -1; margin-top: 2rem;">
+          <h3>🔒 Active Suspensions</h3>
+          <div class="suspensions-table" id="suspensions-table">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 
@@ -337,6 +375,93 @@
             ⚙️ Sign In as System Administrator
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUSPEND USER MODAL -->
+  <div class="modal-overlay" id="suspend-user-modal">
+    <div class="modal-card" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3>Suspend Patient Account</h3>
+        <button class="modal-close" onclick="closeSuspendModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="suspend-form">
+          <input type="hidden" id="suspend-user-id">
+          <div class="form-group">
+            <label class="form-label">Patient Name</label>
+            <input type="text" class="form-input" id="suspend-user-name" readonly>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Suspension Type</label>
+            <select class="form-select" id="suspend-type" required>
+              <option value="warning">⚠️ Warning (No booking restriction)</option>
+              <option value="temporary">⏸️ Temporary Suspension (Blocks booking)</option>
+              <option value="permanent">🚫 Permanent Suspension (Blocks booking)</option>
+            </select>
+          </div>
+          <div class="form-group" id="suspend-expires-group" style="display: none;">
+            <label class="form-label">Expires At (for temporary)</label>
+            <input type="datetime-local" class="form-input" id="suspend-expires-at">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Reason <span class="required">*</span></label>
+            <textarea class="form-textarea" id="suspend-reason" rows="3" placeholder="Explain the reason for suspension..." required></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeSuspendModal()">Cancel</button>
+        <button class="btn btn-danger" onclick="submitSuspendUser()">Apply Suspension</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- UNSUSPEND USER MODAL -->
+  <div class="modal-overlay" id="unsuspend-user-modal">
+    <div class="modal-card" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3>Lift Suspension</h3>
+        <button class="modal-close" onclick="closeUnsuspendModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="unsuspend-form">
+          <input type="hidden" id="unsuspend-user-id">
+          <input type="hidden" id="unsuspend-suspension-id">
+          <div class="form-group">
+            <label class="form-label">Patient Name</label>
+            <input type="text" class="form-input" id="unsuspend-user-name" readonly>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Current Suspension</label>
+            <input type="text" class="form-input" id="unsuspend-current" readonly>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Lift Reason <span class="required">*</span></label>
+            <textarea class="form-textarea" id="unsuspend-lift-reason" rows="3" placeholder="Explain why suspension is being lifted..." required></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeUnsuspendModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitUnsuspendUser()">Lift Suspension</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- USER DETAIL MODAL -->
+  <div class="modal-overlay" id="user-detail-modal">
+    <div class="modal-card" style="max-width: 700px; max-height: 80vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h3>Patient Abuse Profile</h3>
+        <button class="modal-close" onclick="closeUserDetailModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="user-detail-content">
+        <!-- Populated by JS -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeUserDetailModal()">Close</button>
       </div>
     </div>
   </div>

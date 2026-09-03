@@ -1,9 +1,9 @@
 const express = require('express');
-const { queries } = require('../database/db');
+const { queries, getDatabase } = require('../database/db');
 const { authenticateToken, authenticateTokenOrQuery, authorizeRoles } = require('../middleware/auth');
 const { validateCreateAppointment, validateUpdateAppointment, validateAppointmentQuery, validateIdParam } = require('../middleware/validation');
 const { computePriorityScore, priorityReasonText, evaluateConditionPriority } = require('../lib/priorityEngine');
-const { subscribe, publishToDoctor, publishToAppointment, publishToAllAdmins } = require('../lib/sseManager');
+const { subscribe, publishToDoctor, publishToAppointment, publishToAllAdmins, publishToPatient } = require('../lib/sseManager');
 
 const router = express.Router();
 
@@ -131,15 +131,111 @@ router.get('/:id', validateIdParam, (req, res) => {
   }
 });
 
+// Helper: Log account activity and check abuse thresholds
+function logActivityAndCheckAbuse(userId, activityType, appointmentId, metadata = {}) {
+  try {
+    const db = getDatabase();
+    db.prepare('INSERT INTO account_activity (user_id, activity_type, appointment_id, metadata_json) VALUES (?, ?, ?, ?)')
+      .run(userId, activityType, appointmentId, JSON.stringify(metadata));
+
+    // Check abuse thresholds
+    const thresholds = db.prepare('SELECT * FROM abuse_thresholds').all();
+    for (const threshold of thresholds) {
+      const windowDays = threshold.window_days;
+      const windowStr = `-${windowDays} days`;
+      const countResult = db.prepare(`
+        SELECT COUNT(*) as count FROM account_activity
+        WHERE user_id = ? AND activity_type = ? AND created_at >= datetime('now', ?)
+      `).get(userId, threshold.metric.replace('_per_', ''), windowStr);
+      const count = countResult?.count || 0;
+
+      if (count >= threshold.threshold) {
+        // Notify admins
+        const { publishToAllAdmins } = require('../lib/sseManager');
+        publishToAllAdmins({
+          type: 'abuse-flag-raised',
+          userId,
+          flags: [{
+            metric: threshold.metric,
+            count,
+            threshold: threshold.threshold,
+            action: threshold.action,
+            windowDays
+          }]
+        });
+        break; // Notify once per booking
+      }
+    }
+  } catch (error) {
+    console.error('Log activity error:', error);
+  }
+}
+
+// Helper: Check for duplicate enquiry
+function checkDuplicateEnquiry(patientId, doctorId, specialtyId) {
+  try {
+    const db = getDatabase();
+    const recentBooking = db.prepare(`
+      SELECT 1 FROM appointments
+      WHERE patient_id = ? AND doctor_id = ?
+        AND status IN ('scheduled', 'in-progress')
+        AND created_at >= datetime('now', '-1 day')
+      LIMIT 1
+    `).get(patientId, doctorId);
+
+    if (recentBooking) {
+      return true;
+    }
+
+    // Check same specialty within 24h
+    const recentSpecialtyBooking = db.prepare(`
+      SELECT 1 FROM appointments a
+      JOIN doctors d ON a.doctor_id = d.id
+      WHERE a.patient_id = ? AND d.specialty_id = ?
+        AND a.status IN ('scheduled', 'in-progress')
+        AND a.created_at >= datetime('now', '-1 day')
+      LIMIT 1
+    `).get(patientId, specialtyId);
+
+    return !!recentSpecialtyBooking;
+  } catch (error) {
+    console.error('Check duplicate enquiry error:', error);
+    return false;
+  }
+}
+
 // Create new appointment (patient only)
 router.post('/', authorizeRoles('patient'), validateCreateAppointment, (req, res) => {
   try {
     const { doctor_id, appointment_date, appointment_time, notes } = req.body;
 
-    // Check if doctor exists
+    // Check if user is suspended
+    const suspension = getDatabase().prepare(`
+      SELECT * FROM account_suspensions
+      WHERE user_id = ? AND is_active = 1 AND (expires_at IS NULL OR expires_at > datetime('now'))
+      ORDER BY suspended_at DESC LIMIT 1
+    `).get(req.user.id);
+
+    if (suspension) {
+      return res.status(403).json({
+        error: 'Your account is currently suspended',
+        suspension: {
+          type: suspension.suspension_type,
+          reason: suspension.reason,
+          expiresAt: suspension.expires_at
+        }
+      });
+    }
+
+    // Check for duplicate enquiry
     const doctor = queries.getDoctorById.get(doctor_id);
     if (!doctor) {
       return res.status(404).json({ error: 'Doctor not found' });
+    }
+
+    if (checkDuplicateEnquiry(req.user.id, doctor_id, doctor.specialty_id)) {
+      logActivityAndCheckAbuse(req.user.id, 'duplicate_enquiry', null, { doctorId: doctor_id });
+      return res.status(409).json({ error: 'You already have a pending appointment with this doctor or specialty. Please wait for that appointment or cancel it first.' });
     }
 
     // Check if time slot is available
@@ -200,6 +296,9 @@ router.post('/', authorizeRoles('patient'), validateCreateAppointment, (req, res
     );
     const appointment = queries.getAppointmentById.get(result.lastInsertRowid);
 
+    // Log activity
+    logActivityAndCheckAbuse(req.user.id, 'booking_created', appointment.id, { doctorId: doctor_id });
+
     res.status(201).json({
       message: 'Appointment booked successfully',
       appointment
@@ -246,6 +345,8 @@ router.put('/:id', validateIdParam, validateUpdateAppointment, (req, res) => {
       return res.status(403).json({ error: 'Patients can only cancel appointments' });
     }
 
+    const oldStatus = appointment.status;
+
     // If rescheduling, check availability
     if (appointment_date || appointment_time || doctor_id) {
       const newDoctorId = doctor_id || appointment.doctor_id;
@@ -288,6 +389,17 @@ router.put('/:id', validateIdParam, validateUpdateAppointment, (req, res) => {
       req.params.id
     );
     const updatedAppointment = queries.getAppointmentById.get(req.params.id);
+
+    // Log activity for status changes
+    if (oldStatus !== newStatus) {
+      if (newStatus === 'cancelled') {
+        logActivityAndCheckAbuse(appointment.patient_id, 'booking_cancelled', appointment.id, { reason: notes || 'Cancelled by user' });
+      } else if (newStatus === 'no-show') {
+        logActivityAndCheckAbuse(appointment.patient_id, 'no_show', appointment.id, {});
+      } else if (newStatus === 'completed' && oldStatus !== 'completed') {
+        logActivityAndCheckAbuse(appointment.patient_id, 'appointment_completed', appointment.id, {});
+      }
+    }
 
     // Real-time push
     publishToAppointment(req.params.id, updatedAppointment);

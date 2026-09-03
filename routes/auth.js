@@ -1,8 +1,9 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { queries, getDatabase } = require('../database/db');
-const { generateToken, authenticateToken } = require('../middleware/auth');
+const { generateToken, authenticateToken, authenticateTokenOrQuery } = require('../middleware/auth');
 const { validateRegister, validateLogin } = require('../middleware/validation');
+const { publishToPatient, publishToAllAdmins } = require('../lib/sseManager');
 
 const router = express.Router();
 
@@ -88,7 +89,7 @@ router.put('/profile', authenticateToken, (req, res) => {
   }
 
   try {
-    const { full_name, phone, password, current_password } = req.body;
+    const { full_name, phone, password, current_password, abha_id } = req.body;
 
     // Handle password change if provided
     if (password && current_password) {
@@ -106,14 +107,79 @@ router.put('/profile', authenticateToken, (req, res) => {
       queries.updateUser.run(full_name || req.user.full_name, phone || req.user.phone, req.user.id);
     }
 
+    // Handle ABHA ID update
+    if (abha_id !== undefined) {
+      // Validate ABHA ID format (14 digits)
+      if (abha_id !== null && abha_id !== '') {
+        const abhaRegex = /^\d{14}$/;
+        if (!abhaRegex.test(abha_id)) {
+          return res.status(400).json({ error: 'ABHA ID must be a 14-digit number' });
+        }
+        // Check if ABHA ID is already used by another user
+        const existingAbha = queries.findUserByAbhaId.get(abha_id);
+        if (existingAbha && existingAbha.id !== req.user.id) {
+          return res.status(409).json({ error: 'This ABHA ID is already linked to another account' });
+        }
+      }
+
+      const verified = abha_id && abha_id.length === 14 ? 1 : 0;
+      const verifiedAt = verified ? new Date().toISOString() : null;
+      queries.updateUserAbha.run(abha_id || null, verified, verifiedAt, req.user.id);
+
+      // SSE notification
+      publishToPatient(req.user.id, { type: 'abha-linked', abhaId: abha_id });
+      publishToAllAdmins({ type: 'abha-linked', userId: req.user.id, userName: req.user.full_name, abhaId: abha_id });
+    }
+
     const updatedUser = queries.findUserById.get(req.user.id);
 
     const { password_hash, ...userWithoutPassword } = updatedUser;
     res.json({ user: userWithoutPassword });
   } catch (error) {
     console.error('Profile update error:', error);
+    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      return res.status(409).json({ error: 'This ABHA ID is already in use' });
+    }
     res.status(500).json({ error: 'Failed to update profile' });
   }
+});
+
+// SSE stream for patient real-time notifications
+router.get('/patient/stream', authenticateTokenOrQuery, (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  });
+  res.write('retry: 3000\n\n');
+  res.write(`event: patient-update\ndata: ${JSON.stringify({ type: 'connected' })}\n\n`);
+
+  const { subscribeToPatient } = require('../lib/sseManager');
+  subscribeToPatient(req.user.id, res);
+});
+
+// SSE stream for admin real-time notifications
+router.get('/admin/stream', authenticateTokenOrQuery, (req, res) => {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  });
+  res.write('retry: 3000\n\n');
+  res.write(`event: overview-update\ndata: ${JSON.stringify({ type: 'connected' })}\n\n`);
+
+  const { subscribe } = require('../lib/sseManager');
+  subscribe('admin-overview', res);
 });
 
 module.exports = router;
