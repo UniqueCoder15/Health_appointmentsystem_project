@@ -184,14 +184,15 @@ function initializeDatabase() {
   // Enable foreign keys
   db.pragma('foreign_keys = ON');
 
-  // Run migrations first (adds columns to existing tables)
-  runMigrations(db);
+  
+  // First apply schema so all base tables exist
+const  schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
+db.exec(schema);
 
-  // Then apply schema (creates new tables, indexes, triggers)
-  const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
-  db.exec(schema);
+console.log('Schema created successfully');
 
-  console.log('Schema created successfully');
+// Then run migrations for additional features/columns
+runMigrations(db);
 
   // Insert default specialties with icons matching Figma design
   const specialties = [
