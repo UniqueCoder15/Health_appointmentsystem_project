@@ -3,311 +3,356 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Swasthya Saarthi Admin — Clinic Operations & Analytics Dashboard</title>
-  <link rel="stylesheet" href="/css/common.css">
+  <title>Swasthya Saarthi Admin — Clinic Control Center</title>
   <link rel="stylesheet" href="/admin/styles.css">
   <script src="/motion/motion.min.js"></script>
 </head>
 <body>
 
-  <!-- Top Global Header / Navigation Bar -->
-  <header class="mc-header">
-    <a href="/patient" class="mc-logo">
-      <div class="mc-logo-icon"><img src="/images/logo.jpg" alt="Swasthya Saarthi Logo"></div>
-      <span>Swasthya Saarthi Admin</span>
-    </a>
-
-    <div style="display: flex; align-items: center; gap: 1.25rem;">
-      <!-- Role Switcher Pill -->
-      <div class="role-switcher-container">
-        <a href="/patient" class="role-tab">Patient</a>
-        <a href="/doctor" class="role-tab">Doctor</a>
-        <a href="/admin" class="role-tab active">Admin</a>
+  <div class="admin-wrapper">
+    <!-- Sidebar Navigation -->
+    <aside class="admin-sidebar" id="admin-sidebar">
+      <div class="admin-sidebar-header">
+        <img src="/images/logo.jpg" alt="Swasthya Saarthi" class="admin-brand-logo">
+        <div>
+          <div class="admin-brand-title">Swasthya Saarthi</div>
+          <div class="admin-brand-subtitle">Control Center</div>
+        </div>
       </div>
 
-      <div id="admin-auth-badge" style="display: flex; align-items: center; gap: 0.75rem;">
-        <span class="user-name-text">System Administrator</span>
-        <button class="btn btn-outline btn-sm" onclick="logoutAdmin()">Log out</button>
-      </div>
-    </div>
-  </header>
+      <nav class="admin-sidebar-nav">
+        <div class="admin-nav-section-title">Core Operations</div>
+        <a href="#" class="admin-nav-item active" onclick="switchAdminTab('admin-analytics')">
+          <span class="admin-nav-icon">📊</span>
+          <span>Analytics & Overview</span>
+        </a>
+        <a href="#" class="admin-nav-item" onclick="switchAdminTab('admin-doctors')">
+          <span class="admin-nav-icon">👨‍⚕️</span>
+          <span>Doctor Directory</span>
+        </a>
+        <a href="#" class="admin-nav-item" onclick="switchAdminTab('admin-appointments')">
+          <span class="admin-nav-icon">📋</span>
+          <span>Clinic Queue & Appts</span>
+        </a>
 
-  <!-- ADMIN DASHBOARD LAYOUT -->
-  <div class="dash-layout">
-    <!-- Sidebar -->
-    <aside class="dash-sidebar">
-      <div class="dash-sidebar-header">
-        <div style="font-weight: 700; color: #0f172a; font-size: 1.1rem;">Clinic Control Center</div>
-      </div>
-
-      <nav class="dash-sidebar-nav">
-        <a href="#" class="nav-item active" onclick="switchAdminTab('admin-analytics')">
-          <span class="nav-icon">📊</span> Analytics & Overview
+        <div class="admin-nav-section-title">Clinical Configuration</div>
+        <a href="#" class="admin-nav-item" onclick="switchAdminTab('admin-priority')">
+          <span class="admin-nav-icon">⚡</span>
+          <span>Priority Engine</span>
         </a>
-        <a href="#" class="nav-item" onclick="switchAdminTab('admin-priority')">
-          <span class="nav-icon">⚡</span> Priority Engine Config
+        <a href="#" class="admin-nav-item" onclick="switchAdminTab('admin-specialties')">
+          <span class="admin-nav-icon">🩺</span>
+          <span>Specialties Manager</span>
         </a>
-        <a href="#" class="nav-item" onclick="switchAdminTab('admin-doctors')">
-          <span class="nav-icon">👨‍⚕️</span> Doctor Management
-        </a>
-        <a href="#" class="nav-item" onclick="switchAdminTab('admin-appointments')">
-          <span class="nav-icon">📋</span> Clinic Queue & Appts
-        </a>
-        <a href="#" class="nav-item" onclick="switchAdminTab('admin-specialties')">
-          <span class="nav-icon">🩺</span> Specialties Manager
-        </a>
-        <a href="#" class="nav-item" onclick="switchAdminTab('admin-abuse')">
-          <span class="nav-icon">🛡️</span> Abuse Monitoring
+        <a href="#" class="admin-nav-item" onclick="switchAdminTab('admin-abuse')">
+          <span class="admin-nav-icon">🛡️</span>
+          <span>Abuse Monitoring</span>
         </a>
       </nav>
 
-      <div class="dash-sidebar-footer">
-        <a href="#" class="nav-item" onclick="logoutAdmin()">
-          <span class="nav-icon">🚪</span> Log out
-        </a>
+      <div class="admin-sidebar-footer">
+        <div class="admin-user-profile">
+          <div class="admin-avatar">SA</div>
+          <div class="admin-user-info">
+            <div class="admin-user-name">System Administrator</div>
+            <div class="admin-user-role">Super Admin</div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="logoutAdmin()" title="Log out">🚪</button>
+        </div>
       </div>
     </aside>
 
-    <!-- Main Admin Content Area -->
-    <main class="dash-main-content">
-      <!-- Priority Engine Config Tab -->
-      <div id="tab-admin-priority" class="dash-tab-content" style="display: none;">
-        <div class="section-title-bar">
-          <h2>⚡ Priority Engine Configuration</h2>
-          <span style="font-size: 0.85rem; color: #64748b;">Manage priority levels, scoring rules, and acuity thresholds</span>
+    <!-- Main Content Area -->
+    <main class="admin-main">
+      <!-- Topbar Header -->
+      <header class="admin-topbar">
+        <div class="admin-topbar-left">
+          <button class="mobile-menu-toggle" onclick="toggleAdminSidebar()" aria-label="Toggle Navigation">☰</button>
+          <div class="admin-page-title-wrap">
+            <h1 id="page-heading">Analytics & Overview</h1>
+            <p id="page-subheading">Live system metrics and clinic operations overview</p>
+          </div>
         </div>
 
-        <div class="priority-config-grid">
-          <!-- Priority Levels Configuration -->
-          <div class="config-section">
-            <h3>Priority Levels & Scoring</h3>
-            <div class="priority-levels-table" id="priority-levels-table">
-              <!-- Populated by JS -->
+        <div class="admin-topbar-right">
+          <div class="system-status-pill">
+            <span class="status-dot"></span> System Live
+          </div>
+
+          <!-- Role Switcher Pill -->
+          <div class="role-switcher-container">
+            <a href="/patient" class="role-tab">Patient</a>
+            <a href="/doctor" class="role-tab">Doctor</a>
+            <a href="/admin" class="role-tab active">Admin</a>
+          </div>
+        </div>
+      </header>
+
+      <!-- Page Content Area -->
+      <div class="admin-content">
+
+        <!-- Analytics Overview Tab -->
+        <div id="tab-admin-analytics" class="dash-tab-content">
+          <div class="dash-stats-row">
+            <div class="dash-stat-card">
+              <div class="stat-icon-wrapper blue">👥</div>
+              <div>
+                <div class="dash-stat-num" id="admin-stat-patients">120</div>
+                <div class="dash-stat-lbl">Registered Patients</div>
+              </div>
+            </div>
+            <div class="dash-stat-card">
+              <div class="stat-icon-wrapper green">👨‍⚕️</div>
+              <div>
+                <div class="dash-stat-num" id="admin-stat-doctors">5</div>
+                <div class="dash-stat-lbl">Active Doctors</div>
+              </div>
+            </div>
+            <div class="dash-stat-card">
+              <div class="dash-stat-card-inner">
+                <div class="stat-icon-wrapper orange">📅</div>
+                <div>
+                  <div class="dash-stat-num" id="admin-stat-scheduled">16</div>
+                  <div class="dash-stat-lbl">Scheduled Appts</div>
+                </div>
+              </div>
+            </div>
+            <div class="dash-stat-card">
+              <div class="stat-icon-wrapper blue">⏱️</div>
+              <div>
+                <div class="dash-stat-num">98.4%</div>
+                <div class="dash-stat-lbl">Queue On-Time Rate</div>
+              </div>
             </div>
           </div>
 
-          <!-- Scoring Weights Configuration -->
-          <div class="config-section">
-            <h3>Scoring Weights</h3>
-            <div class="weights-form" id="weights-form">
-              <div class="form-group">
-                <label class="form-label">Base Score Weight</label>
-                <input type="number" class="form-input" id="weight-base" step="0.1" min="0.1" max="10" value="1.0">
-                <small class="form-hint">Multiplier for priority level base score (1000 - level × 120 × weight)</small>
+          <!-- Recent System Activity -->
+          <div class="recent-appts-section">
+            <div class="section-title-bar">
+              <div>
+                <h2>Recent Appointments Across Clinic</h2>
+                <p>Live feed of appointments booked across all specialties</p>
               </div>
-              <div class="form-group">
-                <label class="form-label">Wait Time Bonus Rate</label>
-                <input type="number" class="form-input" id="weight-wait" step="0.1" min="0" max="10" value="0.5">
-                <small class="form-hint">Points per minute waited (capped at 200)</small>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Fairness Penalty</label>
-                <input type="number" class="form-input" id="weight-fairness" step="0.1" min="0" max="10" value="2.0">
-                <small class="form-hint">Points deducted per queue position (prevents starvation)</small>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Acuity Bonus Multiplier</label>
-                <input type="number" class="form-input" id="weight-acuity" step="1" min="0" max="500" value="100">
-                <small class="form-hint">Base bonus for acuity levels (Critical=4×, Urgent=2×, Normal=1×, Low=0.5×, Routine=0×)</small>
-              </div>
-              <button class="btn btn-primary" onclick="savePriorityWeights()">Save Weights</button>
+              <button class="btn btn-outline btn-sm" onclick="fetchAdminData()">🔄 Refresh Data</button>
+            </div>
+            <div class="appts-list-container" id="admin-recent-appts">
+              <!-- Populated via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Priority Engine Config Tab -->
+        <div id="tab-admin-priority" class="dash-tab-content" style="display: none;">
+          <div class="section-title-bar">
+            <div>
+              <h2>Priority Engine Configuration</h2>
+              <p>Manage priority scoring, acuity thresholds, and clinical queue parameters</p>
             </div>
           </div>
 
-          <!-- Acuity Rules Configuration -->
-          <div class="config-section" style="grid-column: 1 / -1;">
-            <h3>Acuity Rules & Thresholds</h3>
-            <div class="acuity-rules-form" id="acuity-rules-form">
-              <div class="acuity-rule-row" data-level="1">
-                <div class="rule-badge badge-priority-critical">🚨 Critical</div>
-                <input type="number" class="form-input" placeholder="Acuity Score" value="400" min="0" max="1000">
-                <small class="form-hint">Life-threatening emergencies (e.g., cardiac arrest, severe trauma)</small>
+          <div class="priority-config-grid">
+            <!-- Priority Levels Configuration -->
+            <div class="config-section">
+              <h3>Priority Levels & Base Scoring</h3>
+              <div class="table-responsive">
+                <div id="priority-levels-table">
+                  <!-- Populated by JS -->
+                </div>
               </div>
-              <div class="acuity-rule-row" data-level="2">
-                <div class="rule-badge badge-priority-urgent">⚡ Urgent</div>
-                <input type="number" class="form-input" placeholder="Acuity Score" value="200" min="0" max="1000">
-                <small class="form-hint">Requires attention within 15-30 min (e.g., severe pain, high fever)</small>
+            </div>
+
+            <!-- Scoring Weights Configuration -->
+            <div class="config-section">
+              <h3>Scoring Weight Multipliers</h3>
+              <div class="weights-form" id="weights-form">
+                <div class="form-group">
+                  <label class="form-label">Base Score Weight</label>
+                  <input type="number" class="form-input" id="weight-base" step="0.1" min="0.1" max="10" value="1.0">
+                  <small class="form-hint">Multiplier for priority level base score</small>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Wait Time Bonus Rate</label>
+                  <input type="number" class="form-input" id="weight-wait" step="0.1" min="0" max="10" value="0.5">
+                  <small class="form-hint">Points per minute waited (max 200 pts)</small>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Fairness Penalty</label>
+                  <input type="number" class="form-input" id="weight-fairness" step="0.1" min="0" max="10" value="2.0">
+                  <small class="form-hint">Deducted per queue position to prevent starvation</small>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Acuity Bonus Multiplier</label>
+                  <input type="number" class="form-input" id="weight-acuity" step="1" min="0" max="500" value="100">
+                  <small class="form-hint">Base multiplier for clinical acuity levels</small>
+                </div>
+                <button class="btn btn-primary" onclick="savePriorityWeights()">Save Weights</button>
               </div>
-              <div class="acuity-rule-row" data-level="3">
-                <div class="rule-badge badge-priority-normal">🟢 Normal</div>
-                <input type="number" class="form-input" placeholder="Acuity Score" value="100" min="0" max="1000">
-                <small class="form-hint">Standard walk-in / scheduled visits</small>
+            </div>
+
+            <!-- Acuity Rules Configuration -->
+            <div class="config-section" style="grid-column: 1 / -1;">
+              <h3>Acuity Rules & Thresholds</h3>
+              <div class="acuity-rules-form" id="acuity-rules-form">
+                <div class="acuity-rule-row" data-level="1">
+                  <div class="rule-badge badge-priority-critical">🚨 Critical</div>
+                  <input type="number" class="form-input" placeholder="Acuity Score" value="400" min="0" max="1000" style="max-width: 160px;">
+                  <small class="form-hint">Life-threatening emergencies (e.g., severe trauma, acute cardiac symptoms)</small>
+                </div>
+                <div class="acuity-rule-row" data-level="2">
+                  <div class="rule-badge badge-priority-urgent">⚡ Urgent</div>
+                  <input type="number" class="form-input" placeholder="Acuity Score" value="200" min="0" max="1000" style="max-width: 160px;">
+                  <small class="form-hint">Requires attention within 15-30 min (e.g., severe pain, high fever)</small>
+                </div>
+                <div class="acuity-rule-row" data-level="3">
+                  <div class="rule-badge badge-priority-normal">🟢 Normal</div>
+                  <input type="number" class="form-input" placeholder="Acuity Score" value="100" min="0" max="1000" style="max-width: 160px;">
+                  <small class="form-hint">Standard walk-in / scheduled visits</small>
+                </div>
+                <div class="acuity-rule-row" data-level="4">
+                  <div class="rule-badge badge-priority-low">🔵 Low</div>
+                  <input type="number" class="form-input" placeholder="Acuity Score" value="50" min="0" max="1000" style="max-width: 160px;">
+                  <small class="form-hint">Routine follow-ups, non-urgent concerns</small>
+                </div>
+                <div class="acuity-rule-row" data-level="5">
+                  <div class="rule-badge badge-priority-routine">⚪ Routine</div>
+                  <input type="number" class="form-input" placeholder="Acuity Score" value="0" min="0" max="1000" style="max-width: 160px;">
+                  <small class="form-hint">Annual checkups, preventive care, vaccinations</small>
+                </div>
+                <div style="margin-top: 0.5rem;">
+                  <button class="btn btn-primary" onclick="saveAcuityRules()">Save Acuity Rules</button>
+                </div>
               </div>
-              <div class="acuity-rule-row" data-level="4">
-                <div class="rule-badge badge-priority-low">🔵 Low</div>
-                <input type="number" class="form-input" placeholder="Acuity Score" value="50" min="0" max="1000">
-                <small class="form-hint">Routine follow-ups, non-urgent concerns</small>
+            </div>
+
+            <!-- Live Preview -->
+            <div class="config-section">
+              <h3>Live Score Calculator Preview</h3>
+              <div class="preview-controls">
+                <select class="form-select" id="preview-priority-level">
+                  <option value="1">🚨 Critical</option>
+                  <option value="2">⚡ Urgent</option>
+                  <option value="3" selected>🟢 Normal</option>
+                  <option value="4">🔵 Low</option>
+                  <option value="5">⚪ Routine</option>
+                </select>
+                <input type="number" class="form-input" id="preview-queue-pos" placeholder="Queue Position" value="1" min="1" max="50">
+                <input type="number" class="form-input" id="preview-wait-mins" placeholder="Wait Minutes" value="0" min="0" max="480">
+                <select class="form-select" id="preview-acuity">
+                  <option value="0">No Acuity Bonus</option>
+                  <option value="50">Low Acuity (+50)</option>
+                  <option value="100" selected>Normal Acuity (+100)</option>
+                  <option value="200">Urgent Acuity (+200)</option>
+                  <option value="400">Critical Acuity (+400)</option>
+                </select>
               </div>
-              <div class="acuity-rule-row" data-level="5">
-                <div class="rule-badge badge-priority-routine">⚪ Routine</div>
-                <input type="number" class="form-input" placeholder="Acuity Score" value="0" min="0" max="1000">
-                <small class="form-hint">Annual checkups, preventive care, vaccinations</small>
+              <div class="preview-result" id="preview-result">
+                <div class="preview-score">Score: <span id="preview-score-value">100</span></div>
+                <div class="preview-breakdown" id="preview-breakdown">
+                  <!-- Populated by JS -->
+                </div>
               </div>
-              <button class="btn btn-primary" onclick="saveAcuityRules()">Save Acuity Rules</button>
+            </div>
+
+            <!-- Queue Distribution Stats -->
+            <div class="config-section" style="grid-column: 1 / -1;">
+              <h3>Current Queue Priority Distribution</h3>
+              <div class="distribution-chart" id="distribution-chart">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Doctor Management Tab -->
+        <div id="tab-admin-doctors" class="dash-tab-content" style="display: none;">
+          <div class="section-title-bar">
+            <div>
+              <h2>Doctor Directory & Credentials</h2>
+              <p>Manage clinic doctors, specialties, licenses, and availability</p>
+            </div>
+            <button class="btn btn-primary" onclick="openAddDoctorModal()">+ Add New Doctor</button>
+          </div>
+
+          <div class="recent-appts-section">
+            <div class="appts-list-container" id="admin-doctor-list">
+              <!-- Populated via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Appointments & Queue Tab -->
+        <div id="tab-admin-appointments" class="dash-tab-content" style="display: none;">
+          <div class="section-title-bar">
+            <div>
+              <h2>Clinic Queue & All Appointments</h2>
+              <p>Comprehensive register of scheduled, in-progress, and historical appointments</p>
             </div>
           </div>
 
-          <!-- Live Preview -->
-          <div class="config-section">
-            <h3>Live Score Preview</h3>
-            <div class="preview-controls">
-              <select class="form-select" id="preview-priority-level">
-                <option value="1">🚨 Critical</option>
-                <option value="2">⚡ Urgent</option>
-                <option value="3" selected>🟢 Normal</option>
-                <option value="4">🔵 Low</option>
-                <option value="5">⚪ Routine</option>
-              </select>
-              <input type="number" class="form-input" id="preview-queue-pos" placeholder="Queue Position" value="1" min="1" max="50" style="width: 140px;">
-              <input type="number" class="form-input" id="preview-wait-mins" placeholder="Wait Minutes" value="0" min="0" max="480" style="width: 140px;">
-              <select class="form-select" id="preview-acuity">
-                <option value="0">No Acuity Bonus</option>
-                <option value="50">Low Acuity (+50)</option>
-                <option value="100" selected>Normal Acuity (+100)</option>
-                <option value="200">Urgent Acuity (+200)</option>
-                <option value="400">Critical Acuity (+400)</option>
-              </select>
+          <div class="recent-appts-section">
+            <div class="appts-list-container" id="admin-all-appts-list">
+              <!-- Populated via JS -->
             </div>
-            <div class="preview-result" id="preview-result">
-              <div class="preview-score">Score: <span id="preview-score-value">100</span></div>
-              <div class="preview-breakdown" id="preview-breakdown">
+          </div>
+        </div>
+
+        <!-- Specialties Tab -->
+        <div id="tab-admin-specialties" class="dash-tab-content" style="display: none;">
+          <div class="section-title-bar">
+            <div>
+              <h2>Medical Specialties Directory</h2>
+              <p>Manage clinical departments and specialty categories</p>
+            </div>
+          </div>
+
+          <div class="specialty-grid" id="admin-specialties-grid">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+        <!-- Abuse Monitoring Tab -->
+        <div id="tab-admin-abuse" class="dash-tab-content" style="display: none;">
+          <div class="section-title-bar">
+            <div>
+              <h2>Abuse Monitoring & Account Governance</h2>
+              <p>Track cancellations, no-shows, and repeated enquiry abuse protocols</p>
+            </div>
+          </div>
+
+          <!-- Thresholds Configuration -->
+          <div class="config-section">
+            <h3>Abuse Thresholds Configuration</h3>
+            <div class="table-responsive">
+              <div class="thresholds-table" id="thresholds-table">
                 <!-- Populated by JS -->
               </div>
             </div>
           </div>
 
-          <!-- Queue Distribution Stats -->
-          <div class="config-section" style="grid-column: 1 / -1;">
-            <h3>Current Queue Priority Distribution</h3>
-            <div class="distribution-chart" id="distribution-chart">
-              <!-- Populated by JS -->
+          <!-- Flagged Users -->
+          <div class="config-section" style="margin-top: 1.5rem;">
+            <div class="section-title-bar" style="margin-bottom: 1rem;">
+              <h3>⚠️ Flagged Patients</h3>
+              <button class="btn btn-outline btn-sm" onclick="fetchAbuseData()">🔄 Refresh</button>
+            </div>
+            <div class="table-responsive">
+              <div class="flagged-users-table" id="flagged-users-table">
+                <!-- Populated by JS -->
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Analytics Overview Tab -->
-      <div id="tab-admin-analytics" class="dash-tab-content active">
-        <div class="section-title-bar">
-          <h2>Clinic Performance Overview</h2>
-          <span style="font-size: 0.85rem; color: #64748b;">Live system metrics</span>
-        </div>
-
-        <div class="dash-stats-row">
-          <div class="dash-stat-card">
-            <div class="stat-icon-wrapper blue">👥</div>
-            <div>
-              <div class="dash-stat-num" id="admin-stat-patients">120</div>
-              <div class="dash-stat-lbl">Registered Patients</div>
-            </div>
-          </div>
-          <div class="dash-stat-card">
-            <div class="stat-icon-wrapper green">👨‍⚕️</div>
-            <div>
-              <div class="dash-stat-num" id="admin-stat-doctors">5</div>
-              <div class="dash-stat-lbl">Active Doctors</div>
-            </div>
-          </div>
-          <div class="dash-stat-card">
-            <div class="stat-icon-wrapper blue">📅</div>
-            <div>
-              <div class="dash-stat-num" id="admin-stat-scheduled">16</div>
-              <div class="dash-stat-lbl">Scheduled Appts</div>
-            </div>
-          </div>
-          <div class="dash-stat-card">
-            <div class="stat-icon-wrapper orange">⏱️</div>
-            <div>
-              <div class="dash-stat-num">98.4%</div>
-              <div class="dash-stat-lbl">Queue On-Time Rate</div>
+          <!-- Active Suspensions -->
+          <div class="config-section" style="margin-top: 1.5rem;">
+            <h3>🔒 Active Suspensions</h3>
+            <div class="table-responsive" style="margin-top: 0.75rem;">
+              <div class="suspensions-table" id="suspensions-table">
+                <!-- Populated by JS -->
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Recent System Activity -->
-        <div class="recent-appts-section">
-          <div class="section-title-bar">
-            <h3>Recent Appointments Across Clinic</h3>
-            <button class="btn btn-outline btn-sm" onclick="fetchAdminData()">🔄 Refresh Data</button>
-          </div>
-          <div class="appts-list-container" id="admin-recent-appts">
-            <!-- Populated via JS -->
-          </div>
-        </div>
-      </div>
-
-      <!-- Doctor Management Tab -->
-      <div id="tab-admin-doctors" class="dash-tab-content" style="display: none;">
-        <div class="section-title-bar">
-          <h2>Doctor Directory & Credentials</h2>
-          <button class="btn btn-primary btn-sm" onclick="openAddDoctorModal()">+ Add New Doctor</button>
-        </div>
-
-        <div class="recent-appts-section" style="margin-top: 1.5rem;">
-          <div class="appts-list-container" id="admin-doctor-list">
-            <!-- Populated via JS -->
-          </div>
-        </div>
-      </div>
-
-      <!-- Appointments & Queue Tab -->
-      <div id="tab-admin-appointments" class="dash-tab-content" style="display: none;">
-        <div class="section-title-bar">
-          <h2>Clinic Queue & All Appointments</h2>
-        </div>
-
-        <div class="recent-appts-section" style="margin-top: 1.5rem;">
-          <div class="appts-list-container" id="admin-all-appts-list">
-            <!-- Populated via JS -->
-          </div>
-        </div>
-      </div>
-
-      <!-- Specialties Tab -->
-      <div id="tab-admin-specialties" class="dash-tab-content" style="display: none;">
-        <div class="section-title-bar">
-          <h2>Medical Specialties Directory</h2>
-          <button class="btn btn-primary btn-sm" onclick="openAddSpecialtyModal()">+ Add Specialty</button>
-        </div>
-
-        <div class="specialty-grid" id="admin-specialties-grid" style="margin-top: 1.5rem;">
-          <!-- Populated via JS -->
-        </div>
-      </div>
-
-      <!-- Abuse Monitoring Tab -->
-      <div id="tab-admin-abuse" class="dash-tab-content" style="display: none;">
-        <div class="section-title-bar">
-          <h2>🛡️ Abuse Monitoring & Suspension Management</h2>
-          <span style="font-size: 0.85rem; color: #64748b;">Track cancellations, no-shows, and appointment abuse patterns</span>
-        </div>
-
-        <!-- Thresholds Configuration -->
-        <div class="config-section">
-          <h3>Abuse Thresholds Configuration</h3>
-          <div class="thresholds-table" id="thresholds-table">
-            <!-- Populated by JS -->
-          </div>
-        </div>
-
-        <!-- Flagged Users -->
-        <div class="config-section" style="grid-column: 1 / -1; margin-top: 2rem;">
-          <div class="section-title-bar" style="margin-bottom: 1rem;">
-            <h3>⚠️ Flagged Patients</h3>
-            <button class="btn btn-outline btn-sm" onclick="fetchAbuseData()">🔄 Refresh</button>
-          </div>
-          <div class="flagged-users-table" id="flagged-users-table">
-            <!-- Populated by JS -->
-          </div>
-        </div>
-
-        <!-- Active Suspensions -->
-        <div class="config-section" style="grid-column: 1 / -1; margin-top: 2rem;">
-          <h3>🔒 Active Suspensions</h3>
-          <div class="suspensions-table" id="suspensions-table">
-            <!-- Populated by JS -->
-          </div>
-        </div>
       </div>
     </main>
   </div>
@@ -369,8 +414,8 @@
           <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In as Admin</button>
         </form>
 
-        <div class="demo-shortcuts-box" style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
-          <div style="font-size: 0.8rem; font-weight: 700; color: #64748b; margin-bottom: 0.75rem;">DEMO 1-CLICK ADMIN ACCESS</div>
+        <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--admin-border-subtle);">
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">DEMO 1-CLICK QUICK ACCESS</div>
           <button class="btn btn-outline btn-sm" style="width: 100%; text-align: left;" onclick="quickLoginAdmin('admin@clinic.com', 'admin123')">
             ⚙️ Sign In as System Administrator
           </button>
@@ -454,7 +499,7 @@
   <div class="modal-overlay" id="user-detail-modal">
     <div class="modal-card" style="max-width: 700px; max-height: 80vh; overflow-y: auto;">
       <div class="modal-header">
-        <h3>Patient Abuse Profile</h3>
+        <h3>Patient Governance Profile</h3>
         <button class="modal-close" onclick="closeUserDetailModal()">&times;</button>
       </div>
       <div class="modal-body" id="user-detail-content">
@@ -466,6 +511,13 @@
     </div>
   </div>
 
+  <div class="toast-container" id="toast-container"></div>
   <script src="/admin/app.js"></script>
+
+  <script>
+    function toggleAdminSidebar() {
+      document.getElementById('admin-sidebar').classList.toggle('open');
+    }
+  </script>
 </body>
 </html>

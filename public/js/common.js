@@ -114,7 +114,7 @@ const API = {
     },
 
     updateProfile(data) {
-        return this.request('/api/auth/profile', {
+        return this.request('/auth/profile', {
             method: 'PUT',
             body: data
         });

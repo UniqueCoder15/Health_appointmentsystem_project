@@ -268,21 +268,38 @@ async function deleteApptAdmin(id) {
 function switchAdminTab(tabId) {
   document.querySelectorAll('.dash-tab-content').forEach(el => el.style.display = 'none');
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  if (event && event.currentTarget) event.currentTarget.classList.add('active');
+  if (typeof event !== 'undefined' && event && event.currentTarget) {
+    event.currentTarget.classList.add('active');
+  }
+
+  const heading = document.getElementById('page-heading');
+  const subheading = document.getElementById('page-subheading');
 
   if (tabId === 'admin-analytics') {
     document.getElementById('tab-admin-analytics').style.display = 'block';
+    if (heading) heading.textContent = 'System Analytics';
+    if (subheading) subheading.textContent = 'Real-time overview of clinic traffic, appointments, and performance';
   } else if (tabId === 'admin-priority') {
     document.getElementById('tab-admin-priority').style.display = 'block';
+    if (heading) heading.textContent = 'Priority Engine Configuration';
+    if (subheading) subheading.textContent = 'Manage queue weighting algorithms and acuity scoring';
     loadPriorityConfig();
   } else if (tabId === 'admin-doctors') {
     document.getElementById('tab-admin-doctors').style.display = 'block';
+    if (heading) heading.textContent = 'Doctor Directory';
+    if (subheading) subheading.textContent = 'Manage doctors, fees, and specialties';
   } else if (tabId === 'admin-appointments') {
     document.getElementById('tab-admin-appointments').style.display = 'block';
+    if (heading) heading.textContent = 'All Appointments';
+    if (subheading) subheading.textContent = 'Search and filter active clinic queues';
   } else if (tabId === 'admin-specialties') {
     document.getElementById('tab-admin-specialties').style.display = 'block';
+    if (heading) heading.textContent = 'Specialties';
+    if (subheading) subheading.textContent = 'View and configure medical specialties';
   } else if (tabId === 'admin-abuse') {
     document.getElementById('tab-admin-abuse').style.display = 'block';
+    if (heading) heading.textContent = 'Abuse Prevention System';
+    if (subheading) subheading.textContent = 'Monitor flagged accounts and manage security thresholds';
     fetchAbuseData();
   }
 }
@@ -572,7 +589,7 @@ function getPriorityIcon(level) {
 }
 
 // Toast helper
-function showToast(title, message) {
+function showToast(title, message, type = 'info', duration = 2000) {
   const container = document.getElementById('toast-container') || (() => {
     const c = document.createElement('div');
     c.id = 'toast-container';
@@ -581,17 +598,25 @@ function showToast(title, message) {
     return c;
   })();
 
+  // Clear existing toasts smoothly
+  container.querySelectorAll('.toast').forEach(t => t.remove());
+
+  const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+
   const toast = document.createElement('div');
-  toast.className = 'toast success';
+  toast.className = `toast ${type}`;
+  toast.style.cursor = 'pointer';
+  toast.title = 'Click to dismiss';
   toast.innerHTML = `
-    <div class="toast-icon">✅</div>
+    <div class="toast-icon">${icons[type] || 'ℹ️'}</div>
     <div class="toast-content">
       <div class="toast-title">${title}</div>
       <div class="toast-message">${message}</div>
     </div>
   `;
+  toast.onclick = () => toast.remove();
   container.appendChild(toast);
-  setTimeout(() => toast.remove(), 3000);
+  setTimeout(() => toast.remove(), duration);
 }
 
 function openAdminLoginModal() {

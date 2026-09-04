@@ -57,6 +57,14 @@ async function initKiosk() {
   // Add kiosk mode class to body
   document.body.classList.add('kiosk-mode');
 
+  // Initialize i18n engine first
+  if (window.i18n) {
+    await window.i18n.init();
+    if (window.i18n.locale) {
+      kioskState.selectedLanguage = window.i18n.locale;
+    }
+  }
+
   // Start clock
   updateClock();
   setInterval(updateClock, 1000);
@@ -70,6 +78,17 @@ async function initKiosk() {
 
   // Setup event listeners
   setupEventListeners();
+
+  // Highlight selected language card if saved
+  if (kioskState.selectedLanguage) {
+    document.querySelectorAll('.language-card').forEach(card => {
+      const isSelected = card.dataset.lang === kioskState.selectedLanguage;
+      card.classList.toggle('selected', isSelected);
+      card.setAttribute('aria-selected', isSelected);
+    });
+    const welcomeNext = document.getElementById('welcome-next-btn');
+    if (welcomeNext) welcomeNext.disabled = false;
+  }
 
   // Show welcome step
   showStep('welcome');
@@ -278,7 +297,7 @@ function renderLanguageGrid() {
   `).join('');
 }
 
-function selectLanguage(langCode) {
+async function selectLanguage(langCode) {
   const lang = languages.find(l => l.code === langCode);
   if (!lang) return;
 
@@ -294,6 +313,28 @@ function selectLanguage(langCode) {
   // Enable next button
   document.getElementById('welcome-next-btn').disabled = false;
   document.getElementById('welcome-next-btn').focus();
+
+  // Update i18n engine and active DOM elements
+  if (window.i18n) {
+    await window.i18n.setLocale(langCode);
+    updateDynamicTranslations();
+  }
+}
+
+function updateDynamicTranslations() {
+  renderSpecialtyFilter();
+  renderWalkinDoctors();
+  renderQueueFilterTabs();
+
+  if (kioskState.currentStep === 'queue-view') {
+    const activeTab = document.querySelector('.queue-filter-tab.active');
+    const doctorId = activeTab?.dataset.doctorId || 'all';
+    renderLiveQueue(doctorId);
+  }
+
+  if (kioskState.foundAppointment && kioskState.currentStep === 'confirm-checkin') {
+    renderAppointmentConfirmation(kioskState.foundAppointment);
+  }
 }
 
 // Visit Type Selection
@@ -329,12 +370,16 @@ function renderSpecialtyFilter() {
   const container = document.getElementById('specialty-filter');
   if (!container) return;
 
+  const t = (key, fallback) => (window.i18n ? window.i18n.t(key) : fallback);
+  const activeSpec = kioskState.selectedSpecialty || 'all';
+
   const chips = ['all', ...kioskState.specialties.map(s => s.id)].map(id => {
     if (id === 'all') {
-      return `<button class="specialty-chip active" data-specialty="all">All Specialties</button>`;
+      const allText = t('kiosk.allSpecialties', 'All Specialties');
+      return `<button class="specialty-chip ${activeSpec === 'all' ? 'active' : ''}" data-specialty="all">${allText}</button>`;
     }
     const spec = kioskState.specialties.find(s => s.id == id);
-    return `<button class="specialty-chip" data-specialty="${id}">${spec?.icon || '🩺'} ${spec?.name || 'Unknown'}</button>`;
+    return `<button class="specialty-chip ${activeSpec == id ? 'active' : ''}" data-specialty="${id}">${spec?.icon || '🩺'} ${spec?.name || 'Unknown'}</button>`;
   }).join('');
 
   container.innerHTML = chips;
@@ -374,11 +419,13 @@ function renderWalkinDoctors(doctors = kioskState.doctors) {
   const container = document.getElementById('walkin-doctor-list');
   if (!container) return;
 
+  const t = (key, fallback) => (window.i18n ? window.i18n.t(key) : fallback);
+
   if (doctors.length === 0) {
     container.innerHTML = `
       <div class="queue-empty">
         <div class="empty-icon">🔍</div>
-        <p>No doctors match your criteria.</p>
+        <p>${t('kiosk.noDoctors', 'No doctors match your criteria.')}</p>
       </div>
     `;
     return;
@@ -463,7 +510,8 @@ function validateCheckinInput() {
 }
 
 async function handleCheckinNext() {
-  showLoading(true, 'Finding your appointment...');
+  const t = (key, fallback) => (window.i18n ? window.i18n.t(key) : fallback);
+  showLoading(true, t('kiosk.findingAppointment', 'Finding your appointment...'));
 
   try {
     let appointment = null;
@@ -487,12 +535,12 @@ async function handleCheckinNext() {
       goToStep('confirm-checkin');
     } else {
       showLoading(false);
-      showToast('Appointment not found', 'Please check your details and try again.', 'error');
+      showToast(t('kiosk.apptNotFoundTitle', 'Appointment not found'), t('kiosk.apptNotFoundMsg', 'Please check your details and try again.'), 'error');
     }
   } catch (err) {
     showLoading(false);
     console.error('Check-in error:', err);
-    showToast('Error', 'Failed to find appointment. Please try again.', 'error');
+    showToast(t('kiosk.errorTitle', 'Error'), t('kiosk.findApptError', 'Failed to find appointment. Please try again.'), 'error');
   }
 }
 
@@ -532,46 +580,49 @@ function renderAppointmentConfirmation(appt) {
   const container = document.getElementById('appointment-confirmation');
   if (!container) return;
 
+  const t = (key, fallback) => (window.i18n ? window.i18n.t(key) : fallback);
   const priorityBadge = getPriorityBadge(appt.priority_level || 3);
+  const minsText = t('kiosk.mins', 'minutes');
 
   container.innerHTML = `
     <div class="confirmation-row">
-      <span class="confirmation-label">Doctor</span>
+      <span class="confirmation-label">${t('kiosk.doctor', 'Doctor')}</span>
       <span class="confirmation-value">${appt.doctor_name || 'Dr. Ananya Sharma'}</span>
     </div>
     <div class="confirmation-row">
-      <span class="confirmation-label">Specialty</span>
+      <span class="confirmation-label">${t('kiosk.specialty', 'Specialty')}</span>
       <span class="confirmation-value">${appt.specialty_name || 'Cardiology'}</span>
     </div>
     <div class="confirmation-row">
-      <span class="confirmation-label">Date</span>
+      <span class="confirmation-label">${t('kiosk.date', 'Date')}</span>
       <span class="confirmation-value">${formatDate(appt.appointment_date)}</span>
     </div>
     <div class="confirmation-row">
-      <span class="confirmation-label">Time</span>
+      <span class="confirmation-label">${t('kiosk.time', 'Time')}</span>
       <span class="confirmation-value">${appt.appointment_time}</span>
     </div>
     <div class="confirmation-row">
-      <span class="confirmation-label">Location</span>
+      <span class="confirmation-label">${t('kiosk.location', 'Location')}</span>
       <span class="confirmation-value">${appt.doctor_location || 'AIIMS New Delhi'}</span>
     </div>
     <div class="confirmation-row">
-      <span class="confirmation-label">Priority</span>
+      <span class="confirmation-label">${t('kiosk.priority', 'Priority')}</span>
       <span class="confirmation-value"><span class="badge ${priorityBadge.class}">${priorityBadge.text}</span></span>
     </div>
     <div class="confirmation-row">
-      <span class="confirmation-label">Queue Position</span>
+      <span class="confirmation-label">${t('kiosk.queuePosition', 'Queue Position')}</span>
       <span class="confirmation-value highlight">#${appt.queue_number || 1}</span>
     </div>
     <div class="confirmation-row">
-      <span class="confirmation-label">Estimated Wait</span>
-      <span class="confirmation-value highlight">~${appt.estimated_wait_mins || 15} minutes</span>
+      <span class="confirmation-label">${t('kiosk.estimatedWait', 'Estimated Wait')}</span>
+      <span class="confirmation-value highlight">~${appt.estimated_wait_mins || 15} ${minsText}</span>
     </div>
   `;
 }
 
 async function handleConfirmCheckin() {
-  showLoading(true, 'Checking you in...');
+  const t = (key, fallback) => (window.i18n ? window.i18n.t(key) : fallback);
+  showLoading(true, t('kiosk.checkingIn', 'Checking you in...'));
 
   try {
     const appt = kioskState.foundAppointment;
@@ -629,6 +680,7 @@ function validatePatientForm() {
 }
 
 async function handleWalkinSubmit() {
+  const t = (key, fallback) => (window.i18n ? window.i18n.t(key) : fallback);
   const name = document.getElementById('patient-name').value.trim();
   const phone = document.getElementById('patient-phone').value.trim();
   const email = document.getElementById('patient-email').value.trim() || null;
@@ -647,7 +699,7 @@ async function handleWalkinSubmit() {
     return;
   }
 
-  showLoading(true, 'Booking your appointment...');
+  showLoading(true, t('kiosk.bookingAppointment', 'Booking your appointment...'));
 
   try {
     const res = await fetch('/api/kiosk/walkin', {
@@ -686,18 +738,20 @@ async function handleWalkinSubmit() {
   }
 }
 
-// Live Queue View
 function renderQueueFilterTabs() {
   const container = document.getElementById('queue-filter-tabs');
   if (!container) return;
 
-  // Get doctors with appointments today
+  const t = (key, fallback) => (window.i18n ? window.i18n.t(key) : fallback);
+  const activeTab = document.querySelector('.queue-filter-tab.active')?.dataset.doctorId || 'all';
+
   const tabs = ['all', ...kioskState.doctors.map(d => d.id)].map(id => {
     if (id === 'all') {
-      return `<button class="queue-filter-tab active" data-doctor-id="all">All Doctors</button>`;
+      const allText = t('kiosk.allDoctors', 'All Doctors');
+      return `<button class="queue-filter-tab ${activeTab === 'all' ? 'active' : ''}" data-doctor-id="all">${allText}</button>`;
     }
     const doc = kioskState.doctors.find(d => d.id == id);
-    return `<button class="queue-filter-tab" data-doctor-id="${id}">${doc?.specialty_icon || '🩺'} ${doc?.full_name || 'Unknown'}</button>`;
+    return `<button class="queue-filter-tab ${activeTab == id ? 'active' : ''}" data-doctor-id="${id}">${doc?.specialty_icon || '🩺'} ${doc?.full_name || 'Unknown'}</button>`;
   }).join('');
 
   container.innerHTML = tabs;
@@ -714,24 +768,17 @@ async function renderLiveQueue(doctorId = 'all') {
   const container = document.getElementById('live-queue-display');
   if (!container) return;
 
+  const t = (key, fallback) => (window.i18n ? window.i18n.t(key) : fallback);
+
   try {
     let allAppointments = [];
 
-    if (doctorId === 'all') {
-      // Fetch all appointments for today
-      const res = await fetch('/api/appointments?date_from=' + new Date().toISOString().split('T')[0] + '&date_to=' + new Date().toISOString().split('T')[0], {
-        headers: { 'Authorization': `Bearer ${getDemoToken()}` }
-      });
-      const data = await res.json();
-      allAppointments = data.appointments || [];
-    } else {
-      // Fetch for specific doctor
-      const res = await fetch(`/api/doctors/queue/today?doctor_id=${doctorId}`, {
-        headers: { 'Authorization': `Bearer ${getDemoToken()}` }
-      });
-      const data = await res.json();
-      allAppointments = data.queue || [];
-    }
+    const queueUrl = doctorId === 'all'
+      ? '/api/kiosk/queue'
+      : `/api/kiosk/queue?doctor_id=${doctorId}`;
+    const res = await fetch(queueUrl);
+    const data = await res.json();
+    allAppointments = data.queue || [];
 
     // Filter only waiting/scheduled
     const waitingAppointments = allAppointments.filter(a =>
@@ -753,11 +800,14 @@ async function renderLiveQueue(doctorId = 'all') {
       container.innerHTML = `
         <div class="queue-empty">
           <div class="empty-icon">📋</div>
-          <p>No patients in queue right now.</p>
+          <p>${t('kiosk.noPatientsInQueue', 'No patients in queue right now.')}</p>
         </div>
       `;
       return;
     }
+
+    const waitingText = t('kiosk.waiting', 'waiting');
+    const minsText = t('kiosk.mins', 'min');
 
     container.innerHTML = Object.entries(grouped).map(([docId, patients]) => {
       const doctor = kioskState.doctors.find(d => d.id == docId);
@@ -774,8 +824,8 @@ async function renderLiveQueue(doctorId = 'all') {
               </div>
             </div>
             <div class="queue-stats">
-              <span class="stat">👥 <span class="meta-value">${patients.length}</span> waiting</span>
-              <span class="stat">⏱️ <span class="meta-value">~${currentPatient?.estimated_wait_mins || 0}</span> min</span>
+              <span class="stat">👥 <span class="meta-value">${patients.length}</span> ${waitingText}</span>
+              <span class="stat">⏱️ <span class="meta-value">~${currentPatient?.estimated_wait_mins || 0}</span> ${minsText}</span>
             </div>
           </div>
           <div class="queue-patient-list">
@@ -787,7 +837,7 @@ async function renderLiveQueue(doctorId = 'all') {
                 </div>
                 <div class="queue-patient-right">
                   <span class="queue-position">${p.queue_number || idx + 1}${getOrdinalSuffix(p.queue_number || idx + 1)}</span>
-                  <span class="wait-time">~${p.estimated_wait_mins || 0} min</span>
+                  <span class="wait-time">~${p.estimated_wait_mins || 0} ${minsText}</span>
                   <span class="priority-badge badge ${getPriorityBadge(p.priority_level || 3).class}">${getPriorityBadge(p.priority_level || 3).text}</span>
                 </div>
               </div>
@@ -843,34 +893,36 @@ function showSuccessScreen(appointment) {
   const detailsEl = document.getElementById('success-details');
   const queueDisplayEl = document.getElementById('queue-position-display');
 
+  const t = (key, fallback) => (window.i18n ? window.i18n.t(key) : fallback);
+
   if (kioskState.visitType === 'booked') {
-    titleEl.textContent = 'Check-in Complete!';
-    messageEl.textContent = 'You are now checked in for your appointment.';
+    titleEl.textContent = t('kiosk.checkinCompleteTitle', 'Check-in Complete!');
+    messageEl.textContent = t('kiosk.checkinCompleteMsg', 'You are now checked in for your appointment.');
   } else {
-    titleEl.textContent = 'Appointment Booked!';
-    messageEl.textContent = 'Your walk-in appointment has been confirmed.';
+    titleEl.textContent = t('kiosk.walkinBookedTitle', 'Appointment Booked!');
+    messageEl.textContent = t('kiosk.walkinBookedMsg', 'Your walk-in appointment has been confirmed.');
   }
 
   // Details
   detailsEl.innerHTML = `
     <div class="detail-row">
-      <span class="detail-label">Doctor</span>
+      <span class="detail-label">${t('kiosk.doctor', 'Doctor')}</span>
       <span class="detail-value">${appointment.doctor_name || 'Dr. Ananya Sharma'}</span>
     </div>
     <div class="detail-row">
-      <span class="detail-label">Specialty</span>
+      <span class="detail-label">${t('kiosk.specialty', 'Specialty')}</span>
       <span class="detail-value">${appointment.specialty_name || 'Cardiology'}</span>
     </div>
     <div class="detail-row">
-      <span class="detail-label">Date & Time</span>
+      <span class="detail-label">${t('kiosk.date', 'Date & Time')}</span>
       <span class="detail-value">${formatDate(appointment.appointment_date)} at ${appointment.appointment_time}</span>
     </div>
     <div class="detail-row">
-      <span class="detail-label">Location</span>
+      <span class="detail-label">${t('kiosk.location', 'Location')}</span>
       <span class="detail-value">${appointment.doctor_location || 'AIIMS New Delhi'}</span>
     </div>
     <div class="detail-row">
-      <span class="detail-label">Booking Reference</span>
+      <span class="detail-label">${t('kiosk.bookingReference', 'Booking Reference')}</span>
       <span class="detail-value">SWA-${appointment.appointment_date.replace(/-/g, '')}-${String(appointment.id).padStart(5, '0')}</span>
     </div>
   `;
@@ -878,10 +930,11 @@ function showSuccessScreen(appointment) {
   // Queue position
   const queueNum = appointment.queue_number || 1;
   const waitMins = appointment.estimated_wait_mins || 15;
+  const minsText = t('kiosk.mins', 'minutes');
   queueDisplayEl.innerHTML = `
-    <div class="position-label">Your Position in Queue</div>
+    <div class="position-label">${t('kiosk.yourPositionInQueue', 'Your Position in Queue')}</div>
     <div class="position-number">${queueNum}${getOrdinalSuffix(queueNum)}</div>
-    <div class="position-wait">Estimated wait: ~${waitMins} minutes</div>
+    <div class="position-wait">${t('kiosk.estimatedWaitLabel', 'Estimated wait:')} ~${waitMins} ${minsText}</div>
   `;
 
   goToStep('success');
@@ -958,12 +1011,13 @@ function resetKiosk() {
 
 // Utility Functions
 function getPriorityBadge(level) {
+  const t = (key, fallback) => (window.i18n ? window.i18n.t(key) : fallback);
   const badges = {
-    1: { class: 'badge-priority-critical', text: '🚨 Critical' },
-    2: { class: 'badge-priority-urgent', text: '⚡ Urgent' },
-    3: { class: 'badge-priority-normal', text: '🟢 Normal' },
-    4: { class: 'badge-priority-low', text: '🔵 Low' },
-    5: { class: 'badge-priority-routine', text: '⚪ Routine' }
+    1: { class: 'badge-priority-critical', text: t('kiosk.badgeCritical', '🚨 Critical') },
+    2: { class: 'badge-priority-urgent', text: t('kiosk.badgeUrgent', '⚡ Urgent') },
+    3: { class: 'badge-priority-normal', text: t('kiosk.badgeNormal', '🟢 Normal') },
+    4: { class: 'badge-priority-low', text: t('kiosk.badgeLow', '🔵 Low') },
+    5: { class: 'badge-priority-routine', text: t('kiosk.badgeRoutine', '⚪ Routine') }
   };
   return badges[level] || badges[3];
 }
@@ -1004,9 +1058,12 @@ function showLoading(show, text = 'Processing...') {
 }
 
 // Toast Notifications
-function showToast(title, message, type = 'info') {
+function showToast(title, message, type = 'info', duration = 2000) {
   const container = document.getElementById('toast-container');
   if (!container) return;
+
+  // Clear existing active toasts smoothly
+  container.querySelectorAll('.toast').forEach(t => t.remove());
 
   const icons = {
     success: '✅',
@@ -1017,29 +1074,32 @@ function showToast(title, message, type = 'info') {
 
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
+  toast.style.cursor = 'pointer';
+  toast.title = 'Click to dismiss';
   toast.innerHTML = `
-    <div class="toast-icon">${icons[type]}</div>
+    <div class="toast-icon">${icons[type] || 'ℹ️'}</div>
     <div class="toast-content">
       <div class="toast-title">${title}</div>
       <div class="toast-message">${message}</div>
     </div>
   `;
 
+  toast.onclick = () => toast.remove();
   container.appendChild(toast);
 
   // Animate in
   animateMotion(toast, [
     { opacity: 0, transform: 'translateX(100%)' },
     { opacity: 1, transform: 'translateX(0)' }
-  ], { duration: 300 });
+  ], { duration: 250 });
 
-  // Auto-remove after 5 seconds
+  // Auto-remove after duration
   setTimeout(() => {
     animateMotion(toast, [
       { opacity: 1, transform: 'translateX(0)' },
       { opacity: 0, transform: 'translateX(100%)' }
-    ], { duration: 300 }).then(() => toast.remove());
-  }, 5000);
+    ], { duration: 200 }).then(() => toast.remove());
+  }, duration);
 }
 
 // Accessibility Controls

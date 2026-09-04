@@ -153,6 +153,31 @@ function runMigrations(db) {
     console.log('  Inserted default abuse thresholds');
   }
 
+  // Feature 5: Create priority_validations table for AI Triage Audit Trail
+  if (!tableNames.includes('priority_validations')) {
+    db.exec(`
+      CREATE TABLE priority_validations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          appointment_id INTEGER NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
+          patient_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          original_priority INTEGER NOT NULL,
+          recommended_priority INTEGER NOT NULL,
+          confidence REAL NOT NULL,
+          action TEXT NOT NULL CHECK (action IN ('KEEP', 'DOWNGRADE', 'ESCALATE', 'HUMAN_REVIEW')),
+          reason_codes TEXT,
+          model_version TEXT DEFAULT 'v1.0-sandbox',
+          review_status TEXT DEFAULT 'pending' CHECK (review_status IN ('pending', 'approved', 'overridden', 'applied')),
+          reviewed_by INTEGER REFERENCES users(id),
+          override_priority INTEGER,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_priority_validations_appt ON priority_validations(appointment_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_priority_validations_patient ON priority_validations(patient_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_priority_validations_status ON priority_validations(review_status)');
+    console.log('  Created priority_validations table');
+  }
+
   // Add new indexes - idx_users_abha_id_unique already created in migration above
   // Partial unique index handles NULL values correctly
 

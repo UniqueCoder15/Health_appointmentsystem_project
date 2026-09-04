@@ -267,8 +267,6 @@ router.post('/walkin', (req, res) => {
       level, score, finalReason, notes || 'Kiosk walk-in registration'
     );
 
-    const appointment = queries.getAppointmentById.get(result.lastInsertRowid);
-
     publishToDoctor(doctor_id, { type: 'appointment-changed', appointment });
     publishToAllAdmins({ type: 'appointment-changed', appointmentId: appointment.id });
 
@@ -279,6 +277,43 @@ router.post('/walkin', (req, res) => {
   } catch (error) {
     console.error('Kiosk walkin error:', error);
     res.status(500).json({ error: 'Failed to process walk-in registration' });
+  }
+});
+
+// Get live queue for Kiosk display (public)
+router.get('/queue', (req, res) => {
+  try {
+    const { doctor_id } = req.query;
+    const db = getDatabase();
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    let queryStr = `
+      SELECT a.id, a.patient_id, a.doctor_id, a.appointment_date, a.appointment_time,
+             a.queue_number, a.status, a.queue_status, a.estimated_wait_mins as estimated_wait_time,
+             a.priority_level, a.priority_score, a.priority_reason,
+             p.full_name as patient_name, u.full_name as doctor_name,
+             s.name as specialty_name, s.icon as specialty_icon, d.location as doctor_location
+      FROM appointments a
+      JOIN users p ON a.patient_id = p.id
+      JOIN doctors d ON a.doctor_id = d.id
+      JOIN users u ON d.user_id = u.id
+      JOIN specialties s ON d.specialty_id = s.id
+      WHERE a.appointment_date = ? AND a.status IN ('scheduled', 'in-progress')
+    `;
+
+    let appointments;
+    if (doctor_id && doctor_id !== 'all') {
+      queryStr += ' AND a.doctor_id = ? ORDER BY a.priority_score DESC, a.queue_number ASC';
+      appointments = db.prepare(queryStr).all(todayStr, parseInt(doctor_id));
+    } else {
+      queryStr += ' ORDER BY a.priority_score DESC, a.queue_number ASC';
+      appointments = db.prepare(queryStr).all(todayStr);
+    }
+
+    res.json({ queue: appointments });
+  } catch (error) {
+    console.error('Kiosk live queue error:', error);
+    res.status(500).json({ error: 'Failed to fetch kiosk queue' });
   }
 });
 

@@ -13,7 +13,7 @@ const validateRegister = [
   body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('full_name').trim().isLength({ min: 2 }).withMessage('Full name required'),
-  body('phone').optional().isMobilePhone().withMessage('Valid phone number required'),
+  body('phone').optional({ checkFalsy: true }).matches(/^[\d\+\-\s\(\)]{7,20}$/).withMessage('Valid phone number required'),
   body('role').optional().isIn(['patient', 'doctor']).withMessage('Invalid role'),
   handleValidationErrors
 ];

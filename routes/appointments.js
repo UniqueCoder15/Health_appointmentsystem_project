@@ -299,6 +299,33 @@ router.post('/', authorizeRoles('patient'), validateCreateAppointment, (req, res
     // Log activity
     logActivityAndCheckAbuse(req.user.id, 'booking_created', appointment.id, { doctorId: doctor_id });
 
+    // Trigger AI priority validation asynchronously
+    try {
+      const { priorityValidationService } = require('../services/priorityValidationService');
+      priorityValidationService.validatePriority({
+        symptoms: notes || '',
+        severity: priorityLevel === 1 ? 9 : (priorityLevel === 2 ? 7 : 4),
+        existingPriority: priorityLevel,
+        recordCount: 0,
+        patientAge: 35
+      }).then(valResult => {
+        const reviewStatus = (valResult.confidence >= 0.85 && (valResult.action === 'ESCALATE' || valResult.action === 'DOWNGRADE')) ? 'applied' : 'pending';
+        let finalPriority = priorityLevel;
+        if (reviewStatus === 'applied') {
+          finalPriority = valResult.recommended_priority;
+          const newScore = computePriorityScore({ priority_level: finalPriority, bookedAt: appointment.created_at, queueNumber: appointment.queue_number });
+          queries.updateAppointmentPriority.run(finalPriority, newScore, `AI Triage (${valResult.action}): ${valResult.reason_codes.join(', ')}`, appointment.id);
+        }
+        queries.createPriorityValidation.run(
+          appointment.id, appointment.patient_id, priorityLevel, valResult.recommended_priority,
+          valResult.confidence, valResult.action, JSON.stringify(valResult.reason_codes),
+          valResult.model_version, reviewStatus, null, null
+        );
+      }).catch(err => console.error('Auto AI Validation Error:', err));
+    } catch (e) {
+      console.error('Trigger AI validation error:', e);
+    }
+
     res.status(201).json({
       message: 'Appointment booked successfully',
       appointment

@@ -6,6 +6,7 @@
   <title>Swasthya Saarthi — Self Check-in Kiosk</title>
   <link rel="stylesheet" href="/css/common.css">
   <link rel="stylesheet" href="/kiosk/styles.css">
+  <script src="/js/i18n.js"></script>
   <script src="/motion/motion.min.js"></script>
 </head>
 <body>
@@ -15,8 +16,8 @@
     <div class="kiosk-brand">
       <div class="kiosk-logo-icon"><img src="/images/logo.jpg" alt="Swasthya Saarthi Logo"></div>
       <div>
-        <h1>Swasthya Saarthi</h1>
-        <span class="kiosk-tagline">Self Check-in Kiosk</span>
+        <h1 data-i18n="kiosk.title">Swasthya Saarthi</h1>
+        <span class="kiosk-tagline" data-i18n="kiosk.tagline">Self Check-in Kiosk</span>
       </div>
     </div>
     <div class="kiosk-time" id="kiosk-time">Loading...</div>
@@ -29,9 +30,9 @@
     <section id="step-welcome" class="kiosk-step active" data-step="1">
       <div class="kiosk-card">
         <div class="step-header">
-          <div class="step-indicator">Step 1 of 4</div>
-          <h2>Welcome to Swasthya Saarthi</h2>
-          <p class="step-subtitle">Please select your preferred language to begin</p>
+          <div class="step-indicator" data-i18n="kiosk.step1">Step 1 of 4</div>
+          <h2 data-i18n="kiosk.welcomeTitle">Welcome to Swasthya Saarthi</h2>
+          <p class="step-subtitle" data-i18n="kiosk.welcomeSubtitle">Please select your preferred language to begin</p>
         </div>
 
         <div class="language-grid" id="language-grid">
@@ -39,7 +40,7 @@
         </div>
 
         <div class="kiosk-footer-actions">
-          <button class="btn btn-primary btn-xl" id="welcome-next-btn" disabled>Continue →</button>
+          <button class="btn btn-primary btn-xl" id="welcome-next-btn" disabled data-i18n="kiosk.continue">Continue →</button>
         </div>
       </div>
     </section>
@@ -48,35 +49,35 @@
     <section id="step-visit-type" class="kiosk-step" data-step="2" style="display: none;">
       <div class="kiosk-card">
         <div class="step-header">
-          <div class="step-indicator">Step 2 of 4</div>
-          <h2>How can we help you today?</h2>
-          <p class="step-subtitle">Select the type of visit</p>
+          <div class="step-indicator" data-i18n="kiosk.step2">Step 2 of 4</div>
+          <h2 data-i18n="kiosk.visitTypeTitle">How can we help you today?</h2>
+          <p class="step-subtitle" data-i18n="kiosk.visitTypeSubtitle">Select the type of visit</p>
         </div>
 
         <div class="visit-type-grid" id="visit-type-grid">
           <button class="visit-type-card" data-type="walkin">
             <div class="visit-icon">🚶</div>
-            <div class="visit-title">Walk-in Appointment</div>
-            <div class="visit-desc">See a doctor today without prior booking</div>
-            <div class="visit-badge">Available now</div>
+            <div class="visit-title" data-i18n="kiosk.walkinTitle">Walk-in Appointment</div>
+            <div class="visit-desc" data-i18n="kiosk.walkinDesc">See a doctor today without prior booking</div>
+            <div class="visit-badge" data-i18n="kiosk.walkinBadge">Available now</div>
           </button>
           <button class="visit-type-card" data-type="booked">
             <div class="visit-icon">📅</div>
-            <div class="visit-title">Check-in for Booked Appointment</div>
-            <div class="visit-desc">I have a scheduled appointment</div>
-            <div class="visit-badge">Verify booking</div>
+            <div class="visit-title" data-i18n="kiosk.bookedTitle">Check-in for Booked Appointment</div>
+            <div class="visit-desc" data-i18n="kiosk.bookedDesc">I have a scheduled appointment</div>
+            <div class="visit-badge" data-i18n="kiosk.bookedBadge">Verify booking</div>
           </button>
           <button class="visit-type-card" data-type="queue-only">
             <div class="visit-icon">📋</div>
-            <div class="visit-title">View Live Queue Only</div>
-            <div class="visit-desc">Check current wait times and positions</div>
-            <div class="visit-badge">No check-in needed</div>
+            <div class="visit-title" data-i18n="kiosk.queueOnlyTitle">View Live Queue Only</div>
+            <div class="visit-desc" data-i18n="kiosk.queueOnlyDesc">Check current wait times and positions</div>
+            <div class="visit-badge" data-i18n="kiosk.queueOnlyBadge">No check-in needed</div>
           </button>
         </div>
 
         <div class="kiosk-footer-actions">
-          <button class="btn btn-outline btn-xl" onclick="goToStep(1)">← Back</button>
-          <button class="btn btn-primary btn-xl" id="visit-next-btn" disabled>Continue →</button>
+          <button class="btn btn-outline btn-xl" onclick="goToStep(1)" data-i18n="kiosk.back">← Back</button>
+          <button class="btn btn-primary btn-xl" id="visit-next-btn" disabled data-i18n="kiosk.continue">Continue →</button>
         </div>
       </div>
     </section>
@@ -85,14 +86,14 @@
     <section id="step-walkin-doctor" class="kiosk-step" data-step="3a" style="display: none;">
       <div class="kiosk-card">
         <div class="step-header">
-          <div class="step-indicator">Step 3 of 4</div>
-          <h2>Choose a Doctor</h2>
-          <p class="step-subtitle">Select a specialist available for walk-in today</p>
+          <div class="step-indicator" data-i18n="kiosk.step3">Step 3 of 4</div>
+          <h2 data-i18n="kiosk.chooseDoctorTitle">Choose a Doctor</h2>
+          <p class="step-subtitle" data-i18n="kiosk.chooseDoctorSubtitle">Select a specialist available for walk-in today</p>
         </div>
 
         <div class="doctor-search-box">
           <span class="search-icon">🔍</span>
-          <input type="text" id="doctor-search-input" placeholder="Search by name or specialty..." autocomplete="off">
+          <input type="text" id="doctor-search-input" data-i18n-placeholder="kiosk.searchDoctorPlaceholder" placeholder="Search by name or specialty..." autocomplete="off">
         </div>
 
         <div class="specialty-filter" id="specialty-filter">
@@ -104,8 +105,8 @@
         </div>
 
         <div class="kiosk-footer-actions">
-          <button class="btn btn-outline btn-xl" onclick="goToStep(2)">← Back</button>
-          <button class="btn btn-primary btn-xl" id="doctor-next-btn" disabled>Continue →</button>
+          <button class="btn btn-outline btn-xl" onclick="goToStep(2)" data-i18n="kiosk.back">← Back</button>
+          <button class="btn btn-primary btn-xl" id="doctor-next-btn" disabled data-i18n="kiosk.continue">Continue →</button>
         </div>
       </div>
     </section>
@@ -114,48 +115,48 @@
     <section id="step-booked-checkin" class="kiosk-step" data-step="3b" style="display: none;">
       <div class="kiosk-card">
         <div class="step-header">
-          <div class="step-indicator">Step 3 of 4</div>
-          <h2>Check-in for Your Appointment</h2>
-          <p class="step-subtitle">Enter your details to find your booking</p>
+          <div class="step-indicator" data-i18n="kiosk.step3">Step 3 of 4</div>
+          <h2 data-i18n="kiosk.checkinTitle">Check-in for Your Appointment</h2>
+          <p class="step-subtitle" data-i18n="kiosk.checkinSubtitle">Enter your details to find your booking</p>
         </div>
 
         <div class="checkin-methods">
           <button class="checkin-method-card active" data-method="phone">
             <div class="method-icon">📱</div>
-            <div class="method-title">Phone Number</div>
-            <div class="method-desc">Enter your registered phone number</div>
+            <div class="method-title" data-i18n="kiosk.phoneMethodTitle">Phone Number</div>
+            <div class="method-desc" data-i18n="kiosk.phoneMethodDesc">Enter your registered phone number</div>
           </button>
           <button class="checkin-method-card" data-method="email">
             <div class="method-icon">📧</div>
-            <div class="method-title">Email Address</div>
-            <div class="method-desc">Enter your registered email</div>
+            <div class="method-title" data-i18n="kiosk.emailMethodTitle">Email Address</div>
+            <div class="method-desc" data-i18n="kiosk.emailMethodDesc">Enter your registered email</div>
           </button>
           <button class="checkin-method-card" data-method="booking-id">
             <div class="method-icon">🔢</div>
-            <div class="method-title">Booking ID</div>
-            <div class="method-desc">Enter your appointment reference</div>
+            <div class="method-title" data-i18n="kiosk.bookingIdMethodTitle">Booking ID</div>
+            <div class="method-desc" data-i18n="kiosk.bookingIdMethodDesc">Enter your appointment reference</div>
           </button>
         </div>
 
         <div class="checkin-input-wrapper" id="checkin-phone-input">
-          <label class="form-label">Phone Number</label>
+          <label class="form-label" data-i18n="kiosk.phoneLabel">Phone Number</label>
           <div class="phone-input-group">
             <span class="country-code">+91</span>
-            <input type="tel" id="checkin-phone" placeholder="XXXXXXXXXX" maxlength="10" inputmode="numeric">
+            <input type="tel" id="checkin-phone" data-i18n-placeholder="kiosk.phonePlaceholder" placeholder="XXXXXXXXXX" maxlength="10" inputmode="numeric">
           </div>
         </div>
         <div class="checkin-input-wrapper" id="checkin-email-input" style="display: none;">
-          <label class="form-label">Email Address</label>
-          <input type="email" id="checkin-email" placeholder="your@email.com" autocomplete="email">
+          <label class="form-label" data-i18n="kiosk.emailLabel">Email Address</label>
+          <input type="email" id="checkin-email" data-i18n-placeholder="kiosk.emailPlaceholder" placeholder="your@email.com" autocomplete="email">
         </div>
         <div class="checkin-input-wrapper" id="checkin-booking-input" style="display: none;">
-          <label class="form-label">Booking Reference</label>
-          <input type="text" id="checkin-booking-id" placeholder="e.g., SWA-2026-00123" autocomplete="off" style="text-transform: uppercase;">
+          <label class="form-label" data-i18n="kiosk.bookingRefLabel">Booking Reference</label>
+          <input type="text" id="checkin-booking-id" data-i18n-placeholder="kiosk.bookingRefPlaceholder" placeholder="e.g., SWA-2026-00123" autocomplete="off" style="text-transform: uppercase;">
         </div>
 
         <div class="kiosk-footer-actions">
-          <button class="btn btn-outline btn-xl" onclick="goToStep(2)">← Back</button>
-          <button class="btn btn-primary btn-xl" id="checkin-next-btn" disabled>Find Appointment →</button>
+          <button class="btn btn-outline btn-xl" onclick="goToStep(2)" data-i18n="kiosk.back">← Back</button>
+          <button class="btn btn-primary btn-xl" id="checkin-next-btn" disabled data-i18n="kiosk.findAppointmentBtn">Find Appointment →</button>
         </div>
       </div>
     </section>
@@ -164,9 +165,9 @@
     <section id="step-queue-view" class="kiosk-step" data-step="3c" style="display: none;">
       <div class="kiosk-card">
         <div class="step-header">
-          <div class="step-indicator">Step 3 of 4</div>
-          <h2>Live Queue Status</h2>
-          <p class="step-subtitle">Real-time queue for all doctors today</p>
+          <div class="step-indicator" data-i18n="kiosk.step3">Step 3 of 4</div>
+          <h2 data-i18n="kiosk.liveQueueTitle">Live Queue Status</h2>
+          <p class="step-subtitle" data-i18n="kiosk.liveQueueSubtitle">Real-time queue for all doctors today</p>
         </div>
 
         <div class="queue-filter-tabs" id="queue-filter-tabs">
@@ -178,8 +179,8 @@
         </div>
 
         <div class="kiosk-footer-actions">
-          <button class="btn btn-outline btn-xl" onclick="goToStep(2)">← Back</button>
-          <button class="btn btn-primary btn-xl" onclick="goToStep(1)">Done →</button>
+          <button class="btn btn-outline btn-xl" onclick="goToStep(2)" data-i18n="kiosk.back">← Back</button>
+          <button class="btn btn-primary btn-xl" onclick="goToStep(1)" data-i18n="kiosk.done">Done →</button>
         </div>
       </div>
     </section>
@@ -188,63 +189,63 @@
     <section id="step-patient-details" class="kiosk-step" data-step="4" style="display: none;">
       <div class="kiosk-card">
         <div class="step-header">
-          <div class="step-indicator">Step 4 of 4</div>
-          <h2>Enter Your Details</h2>
-          <p class="step-subtitle">We need this to create your walk-in appointment</p>
+          <div class="step-indicator" data-i18n="kiosk.step4">Step 4 of 4</div>
+          <h2 data-i18n="kiosk.patientDetailsTitle">Enter Your Details</h2>
+          <p class="step-subtitle" data-i18n="kiosk.patientDetailsSubtitle">We need this to create your walk-in appointment</p>
         </div>
 
         <div class="patient-form">
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Full Name <span class="required">*</span></label>
-              <input type="text" class="form-input form-input-lg" id="patient-name" placeholder="Enter your full name" autocomplete="name">
+              <label class="form-label"><span data-i18n="kiosk.fullNameLabel">Full Name</span> <span class="required">*</span></label>
+              <input type="text" class="form-input form-input-lg" id="patient-name" data-i18n-placeholder="kiosk.fullNamePlaceholder" placeholder="Enter your full name" autocomplete="name">
             </div>
             <div class="form-group">
-              <label class="form-label">Phone Number <span class="required">*</span></label>
+              <label class="form-label"><span data-i18n="kiosk.phoneLabel">Phone Number</span> <span class="required">*</span></label>
               <div class="phone-input-group">
                 <span class="country-code">+91</span>
-                <input type="tel" class="form-input form-input-lg" id="patient-phone" placeholder="XXXXXXXXXX" maxlength="10" inputmode="numeric">
+                <input type="tel" class="form-input form-input-lg" id="patient-phone" data-i18n-placeholder="kiosk.phonePlaceholder" placeholder="XXXXXXXXXX" maxlength="10" inputmode="numeric">
               </div>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">Email (optional)</label>
-              <input type="email" class="form-input form-input-lg" id="patient-email" placeholder="your@email.com" autocomplete="email">
+              <label class="form-label" data-i18n="kiosk.emailLabel">Email (optional)</label>
+              <input type="email" class="form-input form-input-lg" id="patient-email" data-i18n-placeholder="kiosk.emailPlaceholder" placeholder="your@email.com" autocomplete="email">
             </div>
             <div class="form-group">
-              <label class="form-label">Age <span class="required">*</span></label>
-              <input type="number" class="form-input form-input-lg" id="patient-age" placeholder="Age" min="1" max="120">
+              <label class="form-label"><span data-i18n="kiosk.ageLabel">Age</span> <span class="required">*</span></label>
+              <input type="number" class="form-input form-input-lg" id="patient-age" data-i18n-placeholder="kiosk.agePlaceholder" placeholder="Age" min="1" max="120">
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Reason for Visit <span class="required">*</span></label>
-            <textarea class="form-textarea form-textarea-lg" id="patient-reason" rows="3" placeholder="Describe your symptoms or reason for visit..."></textarea>
+            <label class="form-label"><span data-i18n="kiosk.reasonLabel">Reason for Visit</span> <span class="required">*</span></label>
+            <textarea class="form-textarea form-textarea-lg" id="patient-reason" rows="3" data-i18n-placeholder="kiosk.reasonPlaceholder" placeholder="Describe your symptoms or reason for visit..."></textarea>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Priority Level</label>
+            <label class="form-label" data-i18n="kiosk.priorityLabel">Priority Level</label>
             <select class="form-select form-select-lg" id="patient-priority">
-              <option value="3">Normal — Standard walk-in</option>
-              <option value="2">High — Urgent concern, needs attention soon</option>
-              <option value="1">Critical — Emergency/acute symptoms</option>
-              <option value="4">Low — Routine follow-up</option>
-              <option value="5">Routine — Annual checkup, preventive</option>
+              <option value="3" data-i18n="kiosk.priorityNormal">Normal — Standard walk-in</option>
+              <option value="2" data-i18n="kiosk.priorityUrgent">High — Urgent concern, needs attention soon</option>
+              <option value="1" data-i18n="kiosk.priorityCritical">Critical — Emergency/acute symptoms</option>
+              <option value="4" data-i18n="kiosk.priorityLow">Low — Routine follow-up</option>
+              <option value="5" data-i18n="kiosk.priorityRoutine">Routine — Annual checkup, preventive</option>
             </select>
           </div>
 
           <div class="form-group">
-            <label class="form-label">ABHA ID (Optional)</label>
-            <input type="text" class="form-input form-input-lg" id="patient-abha" placeholder="14-digit ABHA number" maxlength="14" inputmode="numeric" autocomplete="off">
-            <small class="form-hint">Optional: Enter your 14-digit ABHA ID for linked health records</small>
+            <label class="form-label" data-i18n="kiosk.abhaLabel">ABHA ID (Optional)</label>
+            <input type="text" class="form-input form-input-lg" id="patient-abha" data-i18n-placeholder="kiosk.abhaPlaceholder" placeholder="14-digit ABHA number" maxlength="14" inputmode="numeric" autocomplete="off">
+            <small class="form-hint" data-i18n="kiosk.abhaHint">Optional: Enter your 14-digit ABHA ID for linked health records</small>
           </div>
         </div>
 
         <div class="kiosk-footer-actions">
-          <button class="btn btn-outline btn-xl" onclick="goToStep('3a')">← Back</button>
-          <button class="btn btn-primary btn-xl" id="submit-walkin-btn">Confirm & Book Appointment →</button>
+          <button class="btn btn-outline btn-xl" onclick="goToStep('3a')" data-i18n="kiosk.back">← Back</button>
+          <button class="btn btn-primary btn-xl" id="submit-walkin-btn" data-i18n="kiosk.confirmWalkinBtn">Confirm & Book Appointment →</button>
         </div>
       </div>
     </section>
@@ -253,9 +254,9 @@
     <section id="step-confirm-checkin" class="kiosk-step" data-step="4b" style="display: none;">
       <div class="kiosk-card">
         <div class="step-header">
-          <div class="step-indicator">Step 4 of 4</div>
-          <h2>Confirm Check-in</h2>
-          <p class="step-subtitle">Review your appointment details</p>
+          <div class="step-indicator" data-i18n="kiosk.step4">Step 4 of 4</div>
+          <h2 data-i18n="kiosk.confirmCheckinTitle">Confirm Check-in</h2>
+          <p class="step-subtitle" data-i18n="kiosk.confirmCheckinSubtitle">Review your appointment details</p>
         </div>
 
         <div class="appointment-confirmation" id="appointment-confirmation">
@@ -263,8 +264,8 @@
         </div>
 
         <div class="kiosk-footer-actions">
-          <button class="btn btn-outline btn-xl" onclick="goToStep('3b')">← Back</button>
-          <button class="btn btn-primary btn-xl" id="confirm-checkin-btn">Confirm Check-in →</button>
+          <button class="btn btn-outline btn-xl" onclick="goToStep('3b')" data-i18n="kiosk.back">← Back</button>
+          <button class="btn btn-primary btn-xl" id="confirm-checkin-btn" data-i18n="kiosk.confirmCheckinBtn">Confirm Check-in →</button>
         </div>
       </div>
     </section>
@@ -277,8 +278,8 @@
             <svg viewBox="0 0 52 52" class="checkmark-svg"><circle class="checkmark-circle-bg" cx="26" cy="26" r="25" fill="none"/><path class="checkmark-path" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg>
           </div>
         </div>
-        <h2 id="success-title">Check-in Complete!</h2>
-        <p id="success-message">Your appointment has been confirmed.</p>
+        <h2 id="success-title" data-i18n="kiosk.successTitle">Check-in Complete!</h2>
+        <p id="success-message" data-i18n="kiosk.successMessage">Your appointment has been confirmed.</p>
 
         <div class="success-details" id="success-details">
           <!-- Populated by JS -->
@@ -289,7 +290,7 @@
         </div>
 
         <div class="kiosk-footer-actions">
-          <button class="btn btn-primary btn-xl" onclick="resetKiosk()">Start New Check-in</button>
+          <button class="btn btn-primary btn-xl" onclick="resetKiosk()" data-i18n="kiosk.startNewCheckin">Start New Check-in</button>
         </div>
       </div>
     </section>
@@ -299,16 +300,16 @@
   <!-- Bottom Kiosk Info Bar -->
   <footer class="kiosk-footer">
     <div class="footer-info">
-      <span>🏥 Swasthya Saarthi — Smart Healthcare Platform</span>
-      <span>📞 Support: 1800-XXX-XXXX</span>
-      <span>🌐 Team MedOptima</span>
+      <span data-i18n="kiosk.platform">🏥 Swasthya Saarthi — Smart Healthcare Platform</span>
+      <span data-i18n="kiosk.supportPhone">📞 Support: 1800-XXX-XXXX</span>
+      <span data-i18n="kiosk.team">🌐 Team MedOptima</span>
     </div>
     <div class="accessibility-controls">
-      <button class="accessibility-btn" onclick="toggleHighContrast()" aria-label="Toggle high contrast">
-        <span>🌓</span> Contrast
+      <button class="accessibility-btn" onclick="toggleHighContrast()" data-i18n-aria-label="kiosk.contrast" aria-label="Toggle high contrast">
+        <span>🌓</span> <span data-i18n="kiosk.contrast">Contrast</span>
       </button>
-      <button class="accessibility-btn" onclick="toggleTextSize()" aria-label="Increase text size">
-        <span>🔍</span> Text Size
+      <button class="accessibility-btn" onclick="toggleTextSize()" data-i18n-aria-label="kiosk.textSize" aria-label="Increase text size">
+        <span>🔍</span> <span data-i18n="kiosk.textSize">Text Size</span>
       </button>
     </div>
   </footer>
@@ -316,7 +317,7 @@
   <!-- Loading Overlay -->
   <div class="loading-overlay" id="loading-overlay" style="display: none;">
     <div class="loading-spinner"></div>
-    <p id="loading-text">Processing...</p>
+    <p id="loading-text" data-i18n="kiosk.loading">Processing...</p>
   </div>
 
   <!-- Error Toast -->

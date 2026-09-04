@@ -306,6 +306,31 @@ const queries = {
   findUserByAbhaId: getDatabase().prepare('SELECT * FROM users WHERE abha_id = ?'),
   updateUserAbha: getDatabase().prepare(`
     UPDATE users SET abha_id = ?, abha_verified = ?, abha_verified_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+  `),
+
+  // Priority Validations queries
+  createPriorityValidation: getDatabase().prepare(`
+    INSERT INTO priority_validations (appointment_id, patient_id, original_priority, recommended_priority, confidence, action, reason_codes, model_version, review_status, reviewed_by, override_priority)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `),
+  getPriorityValidationByAppointment: getDatabase().prepare(`
+    SELECT * FROM priority_validations WHERE appointment_id = ? ORDER BY created_at DESC LIMIT 1
+  `),
+  getPendingPriorityValidations: getDatabase().prepare(`
+    SELECT pv.*, a.appointment_date, a.appointment_time, u.full_name as patient_name, d_u.full_name as doctor_name
+    FROM priority_validations pv
+    JOIN appointments a ON pv.appointment_id = a.id
+    JOIN users u ON pv.patient_id = u.id
+    JOIN doctors d ON a.doctor_id = d.id
+    JOIN users d_u ON d.user_id = d_u.id
+    WHERE pv.review_status = 'pending'
+    ORDER BY pv.created_at DESC
+  `),
+  updatePriorityValidationStatus: getDatabase().prepare(`
+    UPDATE priority_validations SET review_status = ?, reviewed_by = ?, override_priority = ? WHERE id = ?
+  `),
+  updateAppointmentPriority: getDatabase().prepare(`
+    UPDATE appointments SET priority_level = ?, priority_score = ?, priority_reason = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
   `)
 };
 

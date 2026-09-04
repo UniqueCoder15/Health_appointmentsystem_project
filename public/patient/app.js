@@ -127,6 +127,21 @@ function handlePatientNotification(data) {
 
 document.addEventListener('DOMContentLoaded', () => {
   initApp();
+
+  // Global event listeners to close open modals on overlay click or Escape key
+  document.addEventListener('click', (e) => {
+    if (e.target && e.target.classList && e.target.classList.contains('modal-overlay')) {
+      e.target.classList.remove('active');
+      stopQueueStream();
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+      stopQueueStream();
+    }
+  });
 });
 
 async function initApp() {
@@ -177,36 +192,169 @@ function updateUIState(isLoggedIn) {
 
 function updateABHAUI() {
   const abhaInput = document.getElementById('profile-abha');
-  const abhaHint = document.getElementById('abha-hint');
+  const abhaStatusPill = document.getElementById('abha-status-pill');
   const abhaStatus = document.getElementById('abha-status');
+  const btnLink = document.getElementById('btn-link-abha');
+  const btnUnlink = document.getElementById('btn-unlink-abha');
+  const otpGroup = document.getElementById('abha-otp-group');
 
-  if (abhaInput && state.user) {
-    if (state.user.abha_id) {
+  if (!state.user) return;
+
+  if (state.user.abha_verified) {
+    if (abhaInput) {
+      abhaInput.value = state.user.abha_id || '';
+      abhaInput.disabled = true;
+    }
+    if (abhaStatusPill) {
+      abhaStatusPill.textContent = '✅ Verified (' + (state.user.abha_id || '') + ')';
+      abhaStatusPill.style.background = '#dcfce7';
+      abhaStatusPill.style.color = '#15803d';
+    }
+    if (btnLink) btnLink.style.display = 'none';
+    if (btnUnlink) btnUnlink.style.display = 'inline-block';
+    if (otpGroup) otpGroup.style.display = 'none';
+    if (abhaStatus) {
+      abhaStatus.textContent = 'ABHA ID linked & verified. Health records synced across Sandbox.';
+      abhaStatus.style.color = '#16a34a';
+    }
+  } else if (state.user.abha_id) {
+    if (abhaInput) {
       abhaInput.value = state.user.abha_id;
-      abhaHint.textContent = 'ABHA ID linked successfully ✓';
-      abhaHint.style.color = '#22c55e';
-      if (abhaStatus) {
-        if (state.user.abha_verified) {
-          abhaStatus.textContent = '✅ Verified on ' + new Date(state.user.abha_verified_at).toLocaleDateString();
-          abhaStatus.style.color = '#22c55e';
-        } else {
-          abhaStatus.textContent = '⏳ Pending verification';
-          abhaStatus.style.color = '#f59e0b';
-        }
-      }
-    } else {
+      abhaInput.disabled = false;
+    }
+    if (abhaStatusPill) {
+      abhaStatusPill.textContent = '⏳ Verification Pending';
+      abhaStatusPill.style.background = '#fef3c7';
+      abhaStatusPill.style.color = '#b45309';
+    }
+    if (btnLink) btnLink.style.display = 'inline-block';
+    if (btnUnlink) btnUnlink.style.display = 'inline-block';
+    if (otpGroup) otpGroup.style.display = 'block';
+    if (abhaStatus) {
+      abhaStatus.textContent = 'Enter verification OTP sent to registered mobile (Sandbox OTP: 123456).';
+      abhaStatus.style.color = '#d97706';
+    }
+  } else {
+    if (abhaInput) {
       abhaInput.value = '';
-      abhaHint.textContent = '14-digit unique health ID (optional)';
-      abhaHint.style.color = '#64748b';
-      if (abhaStatus) abhaStatus.textContent = '';
+      abhaInput.disabled = false;
+    }
+    if (abhaStatusPill) {
+      abhaStatusPill.textContent = 'Not Linked';
+      abhaStatusPill.style.background = '#f1f5f9';
+      abhaStatusPill.style.color = '#64748b';
+    }
+    if (btnLink) btnLink.style.display = 'inline-block';
+    if (btnUnlink) btnUnlink.style.display = 'none';
+    if (otpGroup) otpGroup.style.display = 'none';
+    if (abhaStatus) {
+      abhaStatus.textContent = 'Link your 14-digit ABHA ID to sync digital health records.';
+      abhaStatus.style.color = '#64748b';
     }
   }
 }
 
-// Toast Notifications
-function showToast(title, message, type = 'info') {
+async function handleLinkABHA() {
+  const abhaInput = document.getElementById('profile-abha');
+  const abhaId = abhaInput ? abhaInput.value.trim() : '';
+
+  if (!abhaId || abhaId.length !== 14 || !/^\d{14}$/.test(abhaId)) {
+    showToast('Invalid ABHA ID', 'ABHA ID must be exactly 14 digits.', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/abha/link', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.token}`
+      },
+      body: JSON.stringify({ abha_id: abhaId })
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      state.user.abha_id = abhaId;
+      state.user.abha_verified = false;
+      showToast('OTP Sent', data.message || 'OTP sent to mobile. Sandbox OTP is 123456.', 'info');
+      updateABHAUI();
+    } else {
+      showToast('Link Error', data.error || 'Failed to link ABHA ID', 'error');
+    }
+  } catch (err) {
+    console.error('Link ABHA error:', err);
+    showToast('Error', 'Server error while linking ABHA ID', 'error');
+  }
+}
+
+async function handleVerifyABHA() {
+  const otpInput = document.getElementById('abha-otp-input');
+  const otp = otpInput ? otpInput.value.trim() : '';
+
+  if (!otp || otp.length !== 6) {
+    showToast('Invalid OTP', 'Please enter a 6-digit OTP (Sandbox: 123456)', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/abha/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${state.token}`
+      },
+      body: JSON.stringify({ otp })
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      state.user.abha_verified = true;
+      state.user.abha_verified_at = data.verified_at || new Date().toISOString();
+      showToast('Verified!', 'ABHA ID verified and linked successfully.', 'success');
+      updateABHAUI();
+    } else {
+      showToast('Verification Failed', data.error || 'Invalid OTP.', 'error');
+    }
+  } catch (err) {
+    console.error('Verify ABHA error:', err);
+    showToast('Error', 'Server error while verifying OTP.', 'error');
+  }
+}
+
+async function handleUnlinkABHA() {
+  if (!confirm('Are you sure you want to unlink your ABHA ID?')) return;
+
+  try {
+    const res = await fetch('/api/abha/unlink', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${state.token}`
+      }
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      state.user.abha_id = null;
+      state.user.abha_verified = false;
+      showToast('Unlinked', 'ABHA ID unlinked successfully.', 'info');
+      updateABHAUI();
+    } else {
+      showToast('Error', data.error || 'Failed to unlink ABHA ID.', 'error');
+    }
+  } catch (err) {
+    console.error('Unlink ABHA error:', err);
+    showToast('Error', 'Server error while unlinking ABHA ID.', 'error');
+  }
+}
+
+// Toast Notifications & Dynamic Notifications Panel
+function showToast(title, message, type = 'info', duration = 2000) {
   const container = document.getElementById('toast-container');
   if (!container) return;
+
+  // Instantly clear all previous toasts synchronously to prevent any stacking or overlapping
+  container.innerHTML = '';
 
   const icons = {
     success: '✅',
@@ -217,29 +365,94 @@ function showToast(title, message, type = 'info') {
 
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
+  toast.style.cursor = 'pointer';
+  toast.title = 'Click to dismiss';
   toast.innerHTML = `
-    <div class="toast-icon">${icons[type]}</div>
+    <div class="toast-icon">${icons[type] || 'ℹ️'}</div>
     <div class="toast-content">
       <div class="toast-title">${title}</div>
       <div class="toast-message">${message}</div>
     </div>
   `;
 
+  // Instant dismissal on click
+  toast.onclick = () => {
+    if (toast._timer) clearTimeout(toast._timer);
+    toast.remove();
+  };
+
   container.appendChild(toast);
 
-  // Animate in
-  animateMotion(toast, [
-    { opacity: 0, transform: 'translateX(100%)' },
-    { opacity: 1, transform: 'translateX(0)' }
-  ], { duration: 300 });
+  // Auto-remove automatically after duration (default 2 seconds)
+  toast._timer = setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(100%)';
+    toast.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+    setTimeout(() => {
+      if (toast.parentNode) toast.remove();
+    }, 200);
+  }, duration);
 
-  // Auto-remove after 5 seconds
-  setTimeout(() => {
-    animateMotion(toast, [
-      { opacity: 1, transform: 'translateX(0)' },
-      { opacity: 0, transform: 'translateX(100%)' }
-    ], { duration: 300 }).then(() => toast.remove());
-  }, 5000);
+  // Also push to persistent notifications tab state
+  recordNotification(title, message, type, icons[type]);
+}
+
+function recordNotification(title, message, type = 'info', icon = '🔔') {
+  if (!state.notifications) state.notifications = [];
+  const notif = {
+    id: Date.now(),
+    type,
+    icon: icon || '🔔',
+    title,
+    message,
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  };
+
+  // Prevent duplicate notifications
+  if (state.notifications.length > 0 && state.notifications[0].title === title && state.notifications[0].message === message) {
+    return;
+  }
+
+  state.notifications.unshift(notif);
+  renderPatientNotifications();
+}
+
+function renderPatientNotifications() {
+  const container = document.querySelector('#tab-dash-notifications .notifications-list');
+  if (!container) return;
+
+  const notifs = state.notifications || [];
+  if (notifs.length === 0) {
+    container.innerHTML = `
+      <div class="notification-item">
+        <div class="notif-icon green">✅</div>
+        <div>
+          <h4>Welcome to Swasthya Saarthi</h4>
+          <p>Your healthcare dashboard is active and synchronized.</p>
+          <span class="notif-time">Just now</span>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  const iconColors = {
+    success: 'green',
+    error: 'red',
+    warning: 'yellow',
+    info: 'blue'
+  };
+
+  container.innerHTML = notifs.map(n => `
+    <div class="notification-item" style="margin-bottom: 0.75rem;">
+      <div class="notif-icon ${iconColors[n.type] || 'blue'}">${n.icon || '🔔'}</div>
+      <div>
+        <h4>${n.title}</h4>
+        <p>${n.message}</p>
+        <span class="notif-time">${n.time}</span>
+      </div>
+    </div>
+  `).join('');
 }
 
 function validateABHAId(abhaId) {
@@ -534,15 +747,24 @@ function populateReportAppointmentDropdown() {
 
 // File drop zone handling
 document.addEventListener('DOMContentLoaded', () => {
-  // File drop zone
   const dropZone = document.getElementById('file-drop-zone');
   const fileInput = document.getElementById('report-file');
 
   if (dropZone && fileInput) {
-    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('click', (e) => {
+      if (e.target !== fileInput) {
+        fileInput.click();
+      }
+    });
+
+    fileInput.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
 
     fileInput.addEventListener('change', (e) => {
-      handleFileSelect(e.target.files[0]);
+      if (e.target.files && e.target.files[0]) {
+        handleFileSelect(e.target.files[0]);
+      }
     });
 
     dropZone.addEventListener('dragover', (e) => {
@@ -569,36 +791,49 @@ document.addEventListener('DOMContentLoaded', () => {
 function handleFileSelect(file) {
   if (!file) return;
 
-  const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
-  const maxSize = 10 * 1024 * 1024; // 10MB
+  const fileName = (file.name || '').toLowerCase();
+  const allowedExts = ['.pdf', '.jpg', '.jpeg', '.png'];
+  const hasValidExt = allowedExts.some(ext => fileName.endsWith(ext));
 
-  if (!allowedTypes.includes(file.type)) {
+  const allowedTypes = ['application/pdf', 'application/x-pdf', 'image/jpeg', 'image/jpg', 'image/pjpeg', 'image/png'];
+  const hasValidType = allowedTypes.includes(file.type);
+
+  if (!hasValidExt && !hasValidType) {
     showToast('Invalid File', 'Only PDF, JPG, and PNG files are allowed.', 'error');
     return;
   }
 
+  const maxSize = 10 * 1024 * 1024; // 10MB
   if (file.size > maxSize) {
     showToast('File Too Large', 'Maximum file size is 10MB.', 'error');
     return;
   }
 
   const preview = document.getElementById('file-preview');
-  const icon = file.type === 'application/pdf' ? '📄' : '🖼️';
+  const isPdf = fileName.endsWith('.pdf') || file.type.includes('pdf');
+  const icon = isPdf ? '📄' : '🖼️';
 
-  preview.innerHTML = `
-    <div class="preview-file">
-      <span class="preview-icon">${icon}</span>
-      <div class="preview-info">
-        <div class="preview-name">${file.name}</div>
-        <div class="preview-size">${formatFileSize(file.size)}</div>
+  if (preview) {
+    preview.innerHTML = `
+      <div class="preview-file" style="display:flex; align-items:center; justify-space-between; padding:0.75rem; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; margin-top:0.75rem;">
+        <div style="display:flex; align-items:center; gap:0.75rem;">
+          <span class="preview-icon" style="font-size:1.5rem;">${icon}</span>
+          <div class="preview-info">
+            <div class="preview-name" style="font-weight:600; color:#0f172a; font-size:0.9rem;">${file.name}</div>
+            <div class="preview-size" style="font-size:0.78rem; color:#64748b;">${formatFileSize(file.size)}</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="clearFileSelection()" style="color:#ef4444; border-color:#fca5a5;">Clear</button>
       </div>
-      <button type="button" class="preview-remove" onclick="clearFileSelection()">×</button>
-    </div>
-  `;
-  preview.style.display = 'block';
-  document.getElementById('file-drop-zone').classList.add('has-file');
-  document.querySelector('#file-drop-zone .drop-zone-text').textContent = file.name;
-  document.getElementById('upload-report-submit').disabled = false;
+    `;
+    preview.style.display = 'block';
+  }
+
+  const dropZoneText = document.querySelector('#file-drop-zone .drop-zone-text');
+  if (dropZoneText) dropZoneText.textContent = `Selected: ${file.name}`;
+
+  const submitBtn = document.getElementById('upload-report-submit');
+  if (submitBtn) submitBtn.disabled = false;
 }
 
 function clearFileSelection() {
@@ -608,12 +843,12 @@ function clearFileSelection() {
 
 async function submitReportUpload() {
   const fileInput = document.getElementById('report-file');
-  const docType = document.getElementById('report-doc-type').value;
+  const docType = document.getElementById('report-doc-type').value || 'other';
   const description = document.getElementById('report-description').value;
   const appointmentId = document.getElementById('report-appointment').value;
 
-  if (!fileInput.files[0] || !docType) {
-    showToast('Missing Fields', 'Please select a file and document type.', 'error');
+  if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+    showToast('Missing File', 'Please select a PDF, JPG, or PNG file to upload.', 'error');
     return;
   }
 
@@ -1157,33 +1392,68 @@ function renderNextAppointmentHero() {
   const heroCard = document.getElementById('hero-appt-container');
   if (!heroCard) return;
 
-  const appt = state.nextAppointment;
+  let appt = state.nextAppointment;
+  if (!appt && state.appointments && state.appointments.length > 0) {
+    appt = state.appointments.find(a => a.status === 'scheduled' || a.status === 'in-progress');
+  }
+
   if (appt) {
-    document.getElementById('hero-doc-name').textContent = appt.doctor_name || 'Dr. Ananya Sharma';
-    document.getElementById('hero-doc-spec').textContent = appt.specialty_name || 'Cardiologist';
-    document.getElementById('hero-doc-loc').textContent = appt.doctor_location || 'AIIMS New Delhi';
-    document.getElementById('hero-doc-time').textContent = appt.appointment_time || '2:30 PM';
-    document.getElementById('hero-doc-avatar').textContent = getInitials(appt.doctor_name);
-    
-    const pos = appt.queue_number || 3;
+    const pos = appt.queue_number || 1;
     const suffix = pos === 1 ? 'st' : (pos === 2 ? 'nd' : (pos === 3 ? 'rd' : 'th'));
-    document.getElementById('hero-queue-pos').textContent = `${pos}${suffix}`;
-    document.getElementById('hero-queue-wait').textContent = `~${appt.estimated_wait_mins || 18} min wait`;
+    heroCard.innerHTML = `
+      <div class="hero-appt-content">
+        <div class="hero-appt-tag">NEXT APPOINTMENT</div>
+        <div class="hero-appt-doctor-row">
+          <div class="hero-doc-avatar" id="hero-doc-avatar">${getInitials(appt.doctor_name || 'DR')}</div>
+          <div class="hero-doc-details">
+            <h2 id="hero-doc-name">${appt.doctor_name || 'Doctor'}</h2>
+            <div class="hero-doc-specialty" id="hero-doc-spec">${appt.specialty_name || 'Specialist'}</div>
+            <div class="hero-appt-meta">
+              <span>📅 ${appt.appointment_date}</span>
+              <span>⏰ <span id="hero-doc-time">${appt.appointment_time}</span></span>
+              <span>📍 <span id="hero-doc-loc">${appt.doctor_location || 'Downtown Medical Center'}</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-queue-box">
+        <div class="queue-pill-header">IN QUEUE</div>
+        <div class="queue-pill-num" id="hero-queue-pos">${pos}${suffix}</div>
+        <div class="queue-pill-wait" id="hero-queue-wait">~${appt.estimated_wait_mins || 15} min wait</div>
+        <div class="queue-card-actions">
+          <button class="btn btn-outline btn-sm track-queue-btn" onclick="openLiveQueueTrackerModal(${appt.id})">⏱️ Track Queue</button>
+        </div>
+      </div>
+    `;
+  } else {
+    heroCard.innerHTML = `
+      <div class="hero-appt-content" style="padding: 1.5rem 2rem;">
+        <div class="hero-appt-tag" style="background: rgba(255,255,255,0.2);">NO ACTIVE APPOINTMENTS</div>
+        <h2 style="font-size: 1.35rem; margin-top: 0.5rem; color: #ffffff;">Consultation & Queue Management</h2>
+        <p style="color: #93c5fd; font-size: 0.925rem; margin-top: 0.25rem;">You have no scheduled appointments. Book a consultation with top specialists.</p>
+        <div style="margin-top: 1.25rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">
+          <button class="btn btn-primary" style="background: #ffffff; color: #1e3a8a; border: none; font-weight: 700;" onclick="openBookingModal()">+ Book Appointment</button>
+          <button class="btn btn-outline" style="color: #ffffff; border-color: rgba(255,255,255,0.4);" onclick="openUploadReportModal()">📄 Upload Medical Record</button>
+        </div>
+      </div>
+    `;
   }
 }
 
 function renderDashboardStats() {
-  const upcoming = state.appointments.filter(a => a.status === 'scheduled').length;
-  const completed = state.appointments.filter(a => a.status === 'completed').length;
-  const cancelled = state.appointments.filter(a => a.status === 'cancelled').length;
+  const list = state.appointments || [];
+  const upcoming = list.filter(a => a.status === 'scheduled' || a.status === 'in-progress').length;
+  const completed = list.filter(a => a.status === 'completed').length;
+  const cancelled = list.filter(a => a.status === 'cancelled').length;
 
   const upEl = document.getElementById('stat-upcoming-cnt');
   const compEl = document.getElementById('stat-completed-cnt');
   const cancEl = document.getElementById('stat-cancelled-cnt');
 
-  if (upEl) upEl.textContent = upcoming || 2;
-  if (compEl) compEl.textContent = completed || 14;
-  if (cancEl) cancEl.textContent = cancelled || 1;
+  if (upEl) upEl.textContent = upcoming;
+  if (compEl) compEl.textContent = completed;
+  if (cancEl) cancEl.textContent = cancelled;
 }
 
 function getPriorityBadge(level) {
@@ -1253,8 +1523,16 @@ function filterApptList(status) {
 
 /* View Switching */
 function showLandingView() {
-  document.getElementById('landing-view').style.display = 'block';
-  document.getElementById('dashboard-view').style.display = 'none';
+  const landing = document.getElementById('landing-view');
+  const dashboard = document.getElementById('dashboard-view');
+  if (landing) {
+    landing.style.display = 'block';
+    landing.style.opacity = '1';
+    landing.style.transform = 'none';
+  }
+  if (dashboard) {
+    dashboard.style.display = 'none';
+  }
 }
 
 function showDashboardView() {
@@ -1262,23 +1540,72 @@ function showDashboardView() {
     openLoginModal();
     return;
   }
-  document.getElementById('landing-view').style.display = 'none';
-  document.getElementById('dashboard-view').style.display = 'flex';
+  const landing = document.getElementById('landing-view');
+  const dashboard = document.getElementById('dashboard-view');
+  if (landing) {
+    landing.style.display = 'none';
+  }
+  if (dashboard) {
+    dashboard.style.display = 'flex';
+    dashboard.style.opacity = '1';
+    dashboard.style.transform = 'none';
+  }
+
+  // Ensure default active dashboard tab
+  const activeTab = document.querySelector('.dash-tab-content[style*="display: block"]');
+  if (!activeTab) {
+    switchDashTab('dash-main');
+  }
+
+  // Trigger UI updates
+  renderNextAppointmentHero();
+  renderAppointmentsList();
+  renderDashboardStats();
 }
 
-function switchDashTab(tabId) {
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.dash-tab-content').forEach(el => {
+function switchDashTab(tabId, targetBtn) {
+  // Normalize tabId
+  const cleanId = tabId.startsWith('dash-') ? tabId : `dash-${tabId}`;
+
+  // Highlight active sidebar item
+  document.querySelectorAll('.dash-sidebar-nav .nav-item').forEach(el => el.classList.remove('active'));
+
+  const currentEventTarget = targetBtn || (typeof event !== 'undefined' && event ? event.currentTarget : null);
+  if (currentEventTarget && currentEventTarget.classList) {
+    currentEventTarget.classList.add('active');
+  }
+
+  // Hide all tab content containers immediately
+  const tabs = document.querySelectorAll('.dash-tab-content');
+  tabs.forEach(el => {
     el.style.display = 'none';
-    el.classList.remove('animate-fade-in');
+    el.classList.remove('active');
   });
 
-  if (event && event.currentTarget) event.currentTarget.classList.add('active');
+  // Find target tab element
+  let targetEl = document.getElementById(`tab-${cleanId}`);
+  if (!targetEl && cleanId === 'dash-main') {
+    targetEl = document.getElementById('tab-dash-main');
+  }
 
-  const targetEl = document.getElementById(`tab-${tabId}`);
   if (targetEl) {
     targetEl.style.display = 'block';
-    targetEl.classList.add('animate-fade-in');
+    targetEl.classList.add('active');
+
+    // Trigger tab specific data renders
+    if (cleanId === 'dash-appointments') {
+      renderAppointmentsList();
+    } else if (cleanId === 'dash-reports') {
+      fetchPatientReports();
+    } else if (cleanId === 'dash-symptoms') {
+      fetchPatientSymptomHistory();
+    } else if (cleanId === 'dash-profile') {
+      updateABHAUI();
+    } else if (cleanId === 'dash-main') {
+      renderNextAppointmentHero();
+      renderAppointmentsList();
+      renderDashboardStats();
+    }
   }
 }
 
@@ -1304,15 +1631,9 @@ function openBookingModal() {
 }
 
 function closeBookingModal() {
-  const modalCard = document.querySelector('#booking-modal .modal-card');
-  if (modalCard) {
-    modalCard.style.animation = 'modalSlideOut 0.2s ease-in';
-    setTimeout(() => {
-      document.getElementById('booking-modal').classList.remove('active');
-      modalCard.style.animation = '';
-    }, 200);
-  } else {
-    document.getElementById('booking-modal').classList.remove('active');
+  const modal = document.getElementById('booking-modal');
+  if (modal) {
+    modal.classList.remove('active');
   }
 }
 
@@ -1435,8 +1756,14 @@ async function submitAppointmentBooking() {
   const priority_reason = notes;
 
   if (!doctor_id || !appointment_date || !appointment_time) {
-    alert('Please select a doctor, date, and time slot.');
+    showToast('Missing Details', 'Please select a doctor, date, and time slot.', 'error');
     return;
+  }
+
+  const confirmBtn = document.querySelector('#booking-modal .modal-footer .btn-primary');
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Booking...';
   }
 
   try {
@@ -1450,18 +1777,60 @@ async function submitAppointmentBooking() {
     });
 
     const data = await res.json();
-    if (res.ok) {
-      alert('🎉 Appointment booked successfully!');
+
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Confirm Booking \u2192';
+    }
+
+    if (res.ok && data.appointment) {
+      showToast('🎉 Success', 'Appointment booked successfully!', 'success');
       closeBookingModal();
-      await fetchNextAppointment();
-      await fetchPatientAppointments();
+
+      const newAppt = data.appointment;
+
+      // Update state.appointments immediately without duplicates
+      const existingIdx = state.appointments.findIndex(a => a.id === newAppt.id);
+      if (existingIdx >= 0) {
+        state.appointments[existingIdx] = newAppt;
+      } else {
+        state.appointments.unshift(newAppt);
+      }
+
+      // Update state.nextAppointment if active/sooner
+      if (newAppt.status === 'scheduled' || newAppt.status === 'in-progress') {
+        if (!state.nextAppointment) {
+          state.nextAppointment = newAppt;
+        } else {
+          const nextDate = new Date(`${state.nextAppointment.appointment_date}T${state.nextAppointment.appointment_time}`);
+          const newDate = new Date(`${newAppt.appointment_date}T${newAppt.appointment_time}`);
+          if (newDate <= nextDate) {
+            state.nextAppointment = newAppt;
+          }
+        }
+      }
+
+      // Immediate UI update
+      renderNextAppointmentHero();
+      renderAppointmentsList();
+      renderDashboardStats();
+      if (state.nextAppointment) startHeroStream();
+
+      // Refresh in background to stay fully synchronized
+      fetchNextAppointment();
+      fetchPatientAppointments();
+
       showDashboardView();
     } else {
-      alert(data.error || 'Failed to book appointment.');
+      showToast('Booking Error', data.error || 'Failed to book appointment.', 'error');
     }
   } catch (err) {
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Confirm Booking \u2192';
+    }
     console.error('Booking error:', err);
-    alert('Server error while booking.');
+    showToast('Server Error', 'Server error while booking.', 'error');
   }
 }
 
@@ -1503,7 +1872,88 @@ function openLiveQueueTrackerModal(apptId) {
 }
 
 function closeQueueModal() {
-  document.getElementById('queue-modal').classList.remove('active');
+  const modal = document.getElementById('queue-modal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+  stopQueueStream();
+}
+
+/* Register Modal Logic */
+function openRegisterModal() {
+  document.getElementById('register-modal').classList.add('active');
+}
+
+function closeRegisterModal() {
+  document.getElementById('register-modal').classList.remove('active');
+}
+
+async function handlePatientRegister(e) {
+  e.preventDefault();
+  const nameInput = document.getElementById('register-name');
+  const emailInput = document.getElementById('register-email');
+  const phoneInput = document.getElementById('register-phone');
+  const passInput = document.getElementById('register-password');
+  const submitBtn = document.getElementById('register-submit-btn');
+
+  const full_name = nameInput ? nameInput.value.trim() : '';
+  const email = emailInput ? emailInput.value.trim() : '';
+  const phone = phoneInput ? phoneInput.value.trim() : '';
+  const password = passInput ? passInput.value : '';
+
+  if (!full_name || !email || !password) {
+    showToast('Missing Fields', 'Please fill in all required fields.', 'error');
+    return;
+  }
+
+  if (password.length < 6) {
+    showToast('Weak Password', 'Password must be at least 6 characters.', 'error');
+    return;
+  }
+
+  try {
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Creating Account...';
+    }
+
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ full_name, email, phone, password, role: 'patient' })
+    });
+    const data = await res.json();
+
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Create Account \u2192';
+    }
+
+    if (res.ok && data.token) {
+      state.token = data.token;
+      state.user = data.user;
+      localStorage.setItem('mo_patient_token', data.token);
+      closeRegisterModal();
+      updateUIState(true);
+      showDashboardView();
+      showToast('Welcome!', `Account created successfully. Welcome, ${data.user.full_name}!`, 'success');
+      fetchNextAppointment();
+      fetchPatientAppointments();
+      fetchPatientReports();
+      fetchPatientSymptomHistory();
+      startPatientSSE();
+    } else {
+      const errMsg = data.error || (data.errors && data.errors.map(err => err.msg).join('; ')) || 'Registration failed.';
+      showToast('Registration Error', errMsg, 'error');
+    }
+  } catch (err) {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Create Account \u2192';
+    }
+    console.error('Registration error:', err);
+    showToast('Server Error', 'Failed to complete registration.', 'error');
+  }
 }
 
 /* Login Modal Logic */
@@ -1534,9 +1984,13 @@ async function handlePatientLogin(e) {
       localStorage.setItem('mo_patient_token', data.token);
       closeLoginModal();
       updateUIState(true);
-      await fetchNextAppointment();
-      await fetchPatientAppointments();
       showDashboardView();
+      showToast('Welcome Back!', `Logged in as ${data.user.full_name}`, 'success');
+      fetchNextAppointment();
+      fetchPatientAppointments();
+      fetchPatientReports();
+      fetchPatientSymptomHistory();
+      startPatientSSE();
     } else {
       alert(data.error || 'Login failed.');
     }
@@ -1734,54 +2188,9 @@ function openLiveQueueTrackerModal(apptId) {
   }
 }
 
-function closeQueueModal() {
-  const modalCard = document.querySelector('#queue-modal .modal-card');
-  if (modalCard) {
-    animateMotion(modalCard, [
-      { opacity: 1, transform: 'scale(1) translateY(0)' },
-      { opacity: 0, transform: 'scale(0.95) translateY(8px)' }
-    ], { duration: 200 }).then(() => {
-      document.getElementById('queue-modal').classList.remove('active');
-      stopQueueStream();
-    });
-  } else {
-    document.getElementById('queue-modal').classList.remove('active');
-    stopQueueStream();
-  }
-}
 
-/* Enhanced Dashboard Tab Switching with Animation */
-function switchDashTab(tabId) {
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  if (event && event.currentTarget) event.currentTarget.classList.add('active');
 
-  const tabs = document.querySelectorAll('.dash-tab-content');
-  tabs.forEach(el => {
-    if (el.style.display === 'block') {
-      animateMotion(el, [
-        { opacity: 1, transform: 'translateX(0)' },
-        { opacity: 0, transform: 'translateX(-16px)' }
-      ], { duration: 200 }).then(() => {
-        el.style.display = 'none';
-      });
-    } else {
-      el.style.display = 'none';
-      el.style.opacity = '0';
-      el.style.transform = 'translateX(16px)';
-    }
-  });
 
-  const targetEl = document.getElementById(`tab-${tabId}`);
-  if (targetEl) {
-    targetEl.style.display = 'block';
-    // Force reflow
-    targetEl.offsetHeight;
-    animateMotion(targetEl, [
-      { opacity: 0, transform: 'translateX(16px)' },
-      { opacity: 1, transform: 'translateX(0)' }
-    ], { duration: 300 });
-  }
-}
 
 /* Landing Section Navigation with Smooth Scroll */
 function navigateToSection(secId) {
@@ -1792,57 +2201,7 @@ function navigateToSection(secId) {
   }
 }
 
-/* Page View Transitions */
-function showLandingView() {
-  const landing = document.getElementById('landing-view');
-  const dashboard = document.getElementById('dashboard-view');
-
-  if (dashboard.style.display !== 'none') {
-    animateMotion(dashboard, [
-      { opacity: 1, transform: 'translateX(0)' },
-      { opacity: 0, transform: 'translateX(-24px)' }
-    ], { duration: 250 }).then(() => {
-      dashboard.style.display = 'none';
-      landing.style.display = 'block';
-      landing.style.opacity = '0';
-      landing.style.transform = 'translateX(24px)';
-      animateMotion(landing, [
-        { opacity: 0, transform: 'translateX(24px)' },
-        { opacity: 1, transform: 'translateX(0)' }
-      ], { duration: 300 });
-    });
-  } else {
-    landing.style.display = 'block';
-  }
-}
-
-function showDashboardView() {
-  if (!state.token) {
-    openLoginModal();
-    return;
-  }
-
-  const landing = document.getElementById('landing-view');
-  const dashboard = document.getElementById('dashboard-view');
-
-  if (landing.style.display !== 'none') {
-    animateMotion(landing, [
-      { opacity: 1, transform: 'translateX(0)' },
-      { opacity: 0, transform: 'translateX(24px)' }
-    ], { duration: 250 }).then(() => {
-      landing.style.display = 'none';
-      dashboard.style.display = 'flex';
-      dashboard.style.opacity = '0';
-      dashboard.style.transform = 'translateX(-24px)';
-      animateMotion(dashboard, [
-        { opacity: 0, transform: 'translateX(-24px)' },
-        { opacity: 1, transform: 'translateX(0)' }
-      ], { duration: 300 });
-    });
-  } else {
-    dashboard.style.display = 'flex';
-  }
-}
+/* Page View Transitions handled by primary showLandingView and showDashboardView */
 
 /* ============================================================
    CHATBOT WIDGET - Health Assistant

@@ -19,6 +19,9 @@
    Base Kiosk Layout
    ========================================================================== */
 body.kiosk-mode {
+  font-family: 'Figtree', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Devanagari', 'Noto Sans Tamil', 'Noto Sans Telugu', 'Noto Sans Bengali', 'Noto Sans Gujarati', 'Noto Sans Kannada', 'Noto Sans Malayalam', 'Noto Sans Gurmukhi', sans-serif;
+  line-height: 1.5;
+  word-wrap: break-word;
   background: var(--bg-app);
   min-height: 100vh;
   display: flex;

@@ -34,6 +34,7 @@
 
       <div id="nav-auth-buttons">
         <button class="btn btn-outline btn-sm" onclick="openLoginModal()">Login</button>
+        <button class="btn btn-outline btn-sm" onclick="openRegisterModal()">Register</button>
         <button class="btn btn-primary btn-sm" onclick="openBookingModal()">Book Appointment</button>
       </div>
 
@@ -497,46 +498,46 @@
           </div>
         </div>
 
-        <!-- Need New Appointment Promo Box -->
-        <div class="new-appt-promo-box">
-          <div>
-            <h3>Need a new appointment?</h3>
-            <p>Choose a specialist and book in under 2 minutes.</p>
+        <!-- Dual Action Row: Book Appointment + Upload Medical Records -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin-bottom: 1.75rem;">
+          <div class="new-appt-promo-box" style="margin-bottom: 0;">
+            <div>
+              <h3>Need a new appointment?</h3>
+              <p>Choose a specialist and book in under 2 minutes.</p>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="openBookingModal()">+ Book Appointment</button>
           </div>
-          <button class="btn btn-primary" onclick="openBookingModal()">+ Book Appointment</button>
+
+          <div class="new-appt-promo-box" style="margin-bottom: 0; background: #f0f9ff; border-color: #bae6fd;">
+            <div>
+              <h3 style="color: #0369a1;">📄 Upload Medical Records</h3>
+              <p style="color: #0284c7;">Upload lab results, prescriptions & descriptions for your doctor.</p>
+            </div>
+            <button class="btn btn-primary btn-sm" style="background: #0284c7; border-color: #0284c7;" onclick="openUploadReportModal()">+ Upload Record</button>
+          </div>
         </div>
 
-        <!-- Stat Cards Row -->
-        <div class="dash-stats-row">
+        <!-- Dynamic Stat Cards Row -->
+        <div class="dash-stats-row" style="grid-template-columns: repeat(3, 1fr);">
           <div class="dash-stat-card">
             <div class="stat-icon-wrapper blue">📅</div>
             <div>
-              <div class="dash-stat-num" id="stat-upcoming-cnt">2</div>
-              <div class="dash-stat-lbl">Upcoming</div>
+              <div class="dash-stat-num" id="stat-upcoming-cnt">0</div>
+              <div class="dash-stat-lbl">Upcoming Appointments</div>
             </div>
           </div>
           <div class="dash-stat-card">
             <div class="stat-icon-wrapper green">✅</div>
             <div>
-              <div class="dash-stat-num-row">
-                <span class="dash-stat-num" id="stat-completed-cnt">14</span>
-                <span class="badge-growth-pill">+3 this month</span>
-              </div>
-              <div class="dash-stat-lbl">Completed</div>
+              <div class="dash-stat-num" id="stat-completed-cnt">0</div>
+              <div class="dash-stat-lbl">Completed Visits</div>
             </div>
           </div>
           <div class="dash-stat-card">
             <div class="stat-icon-wrapper red">❌</div>
             <div>
-              <div class="dash-stat-num" id="stat-cancelled-cnt">1</div>
+              <div class="dash-stat-num" id="stat-cancelled-cnt">0</div>
               <div class="dash-stat-lbl">Cancelled</div>
-            </div>
-          </div>
-          <div class="dash-stat-card">
-            <div class="stat-icon-wrapper orange">⏱️</div>
-            <div>
-              <div class="dash-stat-num">22 min</div>
-              <div class="dash-stat-lbl">Avg Wait Time</div>
             </div>
           </div>
         </div>
@@ -705,15 +706,40 @@
             <label class="form-label">Phone Number</label>
             <input type="text" class="form-input" id="profile-phone" value="+91-98765-43210">
           </div>
-          <div class="form-group">
-            <label class="form-label">ABHA ID <span class="optional">(Optional)</span></label>
-            <div class="abha-input-wrapper">
-              <input type="text" class="form-input" id="profile-abha" placeholder="Enter 14-digit ABHA ID" maxlength="14" inputmode="numeric" autocomplete="off">
-              <span class="abha-validation-hint" id="abha-hint">14-digit unique health ID</span>
+          <div class="form-group" style="margin-top: 1.5rem; padding: 1.25rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+              <label class="form-label" style="margin-bottom: 0; font-weight: 700; color: #0f172a;">
+                🆔 ABHA Health ID (Ayushman Bharat)
+              </label>
+              <span class="badge" style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 6px;">
+                🧪 ABHA Sandbox / Prototype Mode
+              </span>
             </div>
-            <small class="form-hint" id="abha-status"></small>
+            
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+              <span style="font-size: 0.875rem; color: #475569;">Status:</span>
+              <span id="abha-status-pill" class="badge" style="background: #f1f5f9; color: #64748b; font-weight: 600;">Not Linked</span>
+            </div>
+
+            <div class="abha-input-wrapper" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+              <input type="text" class="form-input" id="profile-abha" placeholder="Enter 14-digit ABHA ID (e.g. 91123456789012)" maxlength="14" inputmode="numeric" autocomplete="off" style="flex: 1;">
+              <button class="btn btn-primary btn-sm" id="btn-link-abha" onclick="handleLinkABHA()">Link ABHA</button>
+              <button class="btn btn-outline btn-sm" id="btn-unlink-abha" onclick="handleUnlinkABHA()" style="display: none; color: #ef4444; border-color: #fca5a5;">Unlink</button>
+            </div>
+            <small class="form-hint" id="abha-status" style="color: #64748b; display: block;">Link your 14-digit ABHA ID to sync digital health records.</small>
+
+            <!-- OTP Verification Group (Shown when pending) -->
+            <div id="abha-otp-group" style="display: none; margin-top: 1rem; padding: 1rem; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px;">
+              <div style="font-size: 0.875rem; font-weight: 600; color: #0f172a; margin-bottom: 0.5rem;">
+                🔑 Enter Verification OTP (Sandbox Code: 123456)
+              </div>
+              <div style="display: flex; gap: 0.5rem;">
+                <input type="text" class="form-input" id="abha-otp-input" placeholder="6-digit OTP" maxlength="6" inputmode="numeric" style="width: 140px;">
+                <button class="btn btn-primary btn-sm" onclick="handleVerifyABHA()">Verify OTP</button>
+              </div>
+            </div>
           </div>
-          <button class="btn btn-primary" onclick="saveProfile()">Save Changes</button>
+          <button class="btn btn-primary" onclick="saveProfile()" style="margin-top: 1rem;">Save Changes</button>
         </div>
       </div>
     </main>
@@ -848,7 +874,11 @@
           <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
         </form>
 
-        <div class="demo-shortcuts-box" style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
+        <div style="text-align: center; margin-top: 1rem; font-size: 0.875rem; color: #64748b;">
+          Don't have an account? <a href="#" style="color: var(--primary); font-weight: 600;" onclick="closeLoginModal(); openRegisterModal(); return false;">Register here</a>
+        </div>
+
+        <div class="demo-shortcuts-box" style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
           <div style="font-size: 0.8rem; font-weight: 700; color: #64748b; margin-bottom: 0.75rem;">DEMO 1-CLICK QUICK ACCESS</div>
           <div style="display: flex; flex-direction: column; gap: 0.5rem;">
             <button class="btn btn-outline btn-sm" style="text-align: left; justify-content: flex-start;" onclick="quickLoginDemo('patient1@email.com', 'patient123')">
@@ -866,6 +896,41 @@
     </div>
   </div>
 
+  <!-- PATIENT REGISTER MODAL -->
+  <div class="modal-overlay" id="register-modal">
+    <div class="modal-card" style="max-width: 460px;">
+      <div class="modal-header">
+        <h3>Create Patient Account</h3>
+        <button class="modal-close" onclick="closeRegisterModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="register-form" onsubmit="handlePatientRegister(event)">
+          <div class="form-group">
+            <label class="form-label">Full Name <span class="required">*</span></label>
+            <input type="text" class="form-input" id="register-name" placeholder="e.g. Aarav Mehta" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email Address <span class="required">*</span></label>
+            <input type="email" class="form-input" id="register-email" placeholder="patient@example.com" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone Number</label>
+            <input type="tel" class="form-input" id="register-phone" placeholder="+91-98765-43210">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password <span class="required">*</span></label>
+            <input type="password" class="form-input" id="register-password" placeholder="Minimum 6 characters" minlength="6" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;" id="register-submit-btn">Create Account &rarr;</button>
+        </form>
+
+        <div style="text-align: center; margin-top: 1rem; font-size: 0.875rem; color: #64748b;">
+          Already have an account? <a href="#" style="color: var(--primary); font-weight: 600;" onclick="closeRegisterModal(); openLoginModal(); return false;">Sign in here</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- UPLOAD REPORT MODAL -->
   <div class="modal-overlay" id="upload-report-modal">
     <div class="modal-card" style="max-width: 560px;">
@@ -877,11 +942,11 @@
         <form id="upload-report-form" enctype="multipart/form-data">
           <div class="form-group">
             <label class="form-label">Report File <span class="required">*</span></label>
-            <div class="file-drop-zone" id="file-drop-zone" onclick="document.getElementById('report-file').click()">
+            <div class="file-drop-zone" id="file-drop-zone">
               <div class="drop-zone-icon">📄</div>
               <div class="drop-zone-text">Drag & drop a PDF, JPG, or PNG file here</div>
               <div class="drop-zone-hint">or click to browse</div>
-              <input type="file" id="report-file" accept=".pdf,.jpg,.jpeg,.png" style="display: none;">
+              <input type="file" id="report-file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" style="display: none;">
             </div>
             <div id="file-preview" class="file-preview" style="display: none;"></div>
           </div>
