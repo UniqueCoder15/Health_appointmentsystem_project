@@ -197,6 +197,12 @@ function runMigrations(db) {
     END;
   `);
 
+  try {
+    db.exec('ALTER TABLE symptom_assessments ADD COLUMN duration TEXT');
+  } catch (e) {
+    // Column already exists
+  }
+
   console.log('Migrations completed');
 }
 

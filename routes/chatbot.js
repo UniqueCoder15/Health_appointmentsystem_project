@@ -2,6 +2,7 @@ const express = require('express');
 const { queries, getDatabase } = require('../database/db');
 const { authenticateToken, authenticateTokenOrQuery } = require('../middleware/auth');
 const { publishToPatient } = require('../lib/sseManager');
+const { GoogleGenAI } = require('@google/genai');
 
 const router = express.Router();
 
@@ -22,37 +23,32 @@ const EMERGENCY_KEYWORDS = [
 function buildSystemPrompt(user) {
   const currentDate = new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-  return `You are Swasthya Saarthi's AI Health Assistant — a helpful, empathetic guide for patients navigating their healthcare journey.
+  return `You are Swasthya Saarthi's AI Health Assistant — a helpful, empathetic guide for patients navigating their healthcare journey on the Swasthya Saarthi Smart Healthcare & Priority Queue Platform.
 
 IMPORTANT SAFETY RULES:
-1. You are NOT a doctor and do NOT provide medical diagnoses.
-2. For ANY emergency or severe symptoms, ALWAYS advise: "This sounds serious. Please seek immediate medical attention at the nearest emergency department or call 112/108 (India emergency services)."
-3. Never prescribe medication or suggest specific treatments.
-4. Encourage patients to consult qualified healthcare professionals for proper evaluation.
-5. Be clear about your limitations as an AI assistant.
+1. You are NOT a doctor and do NOT provide medical diagnoses or prescribe medications.
+2. For ANY emergency or severe symptoms (e.g. severe chest pain, inability to breathe, stroke signs), ALWAYS advise immediate emergency care: "Please call 112/108 (India Emergency) or visit the nearest emergency room immediately."
+3. Always encourage patients to consult qualified healthcare professionals.
+4. Be clear, concise, and structured (use bullet points and bold headers for readability).
 
-YOUR CAPABILITIES:
-- Answer general health questions and explain medical terms
-- Help patients understand their appointment/queue status (if they provide context)
-- Guide patients to appropriate specialties based on symptoms described
-- Explain how to use Swasthya Saarthi platform features
-- Provide general wellness and preventive care information
-- Help organize symptoms for doctor visits
+YOUR CAPABILITIES & SWASTHYA SAARTHI PLATFORM FEATURES:
+- Answer health questions, symptom explanations, and clarify medical terminology.
+- Guide patients to appropriate medical specialties available on Swasthya Saarthi (Cardiology, Neurology, Orthopedics, Pediatrics, Dermatology, Pulmonology, General Medicine, Psychiatry, Ophthalmology, ENT).
+- Explain Swasthya Saarthi platform features:
+  - Real-time priority queue tracking and estimated wait times
+  - Appointment booking with specialists
+  - ABHA ID integration (14-digit Ayushman Bharat Health Account)
+  - Symptom Checker tool for organizing doctor visit details
+  - Uploading and viewing medical reports (PDF, images)
+- Help organize symptoms before a doctor appointment.
 
 PATIENT CONTEXT:
 - Name: ${user.full_name || 'Patient'}
-- Role: ${user.role}
+- Role: ${user.role || 'patient'}
 - Date: ${currentDate}
 - ABHA ID: ${user.abha_id || 'Not linked'}
 
-RESPONSE STYLE:
-- Warm, professional, and empathetic
-- Clear and concise (avoid long paragraphs)
-- Use bullet points for readability
-- Always include the disclaimer for health-related responses
-- For appointment/queue questions, ask for their appointment details if needed
-
-DISCLAIMER TO INCLUDE IN HEALTH-RELATED RESPONSES:
+ALWAYS END HEALTH-RELATED ADVICE WITH THIS DISCLAIMER:
 "⚠️ I am an AI assistant, not a doctor. This information is for educational purposes only. Please consult a healthcare professional for medical advice, diagnosis, or treatment."
 `;
 }
@@ -68,7 +64,175 @@ function checkEmergency(message) {
   return { emergency: false };
 }
 
-// Generate AI response (mock for prototype - can integrate with real AI API later)
+// Intelligent rule-based fallback response engine
+function generateRuleBasedResponse(userMessage, user) {
+  const lowerMsg = userMessage.toLowerCase().trim();
+
+  // 1. Doctor & Appointment / Queue Lookup
+  if (lowerMsg.includes('appointment') || lowerMsg.includes('queue') || lowerMsg.includes('booking') || lowerMsg.includes('slot') || lowerMsg.includes('wait') || lowerMsg.includes('doctor') || lowerMsg.includes('dr.')) {
+    let matchedDoc = '';
+    if (lowerMsg.includes('patel') || lowerMsg.includes('rajesh')) matchedDoc = 'Dr. Rajesh Patel (Orthopedics)';
+    else if (lowerMsg.includes('sharma')) matchedDoc = 'Dr. Anita Sharma (Cardiology)';
+    else if (lowerMsg.includes('verma')) matchedDoc = 'Dr. Vikram Verma (Neurology)';
+
+    return {
+      response: `### 📅 Appointment & Queue Assistance
+
+${matchedDoc ? `**Doctor Reference**: ${matchedDoc}\n` : ''}
+To manage your appointments or check your live queue status on Swasthya Saarthi:
+
+1. **Live Queue Tracking**: Go to **Queue Tracking** in your dashboard to view your exact token position, estimated wait time, and room number.
+2. **Book Appointment**: Click **Book Appointment** to select a doctor by specialty, view open calendar slots, and confirm your visit.
+3. **Clinical Priority Queue**: Our smart triage system automatically prioritizes urgent cases based on clinical severity.
+
+Do you need help navigating to a specific doctor or managing an upcoming booking?
+
+---
+⚠️ I am an AI assistant, not a doctor. For urgent health matters, please consult your clinic staff directly.`,
+      emergency: false
+    };
+  }
+
+  // 2. Specialty & Department Guidance
+  if (lowerMsg.includes('specialist') || lowerMsg.includes('specialty') || lowerMsg.includes('which doctor') || lowerMsg.includes('what kind of doctor') || lowerMsg.includes('department')) {
+    return {
+      response: `### 🩺 Specialist Referral Guidance
+
+Based on your query, here is how Swasthya Saarthi departments match common conditions:
+
+- **🩺 Cardiology**: High BP, chest tightness, palpitations, heart health
+- **🧠 Neurology**: Chronic headaches, migraines, numbness, nerve pain
+- **🦴 Orthopedics**: Joint pain, bone injuries, arthritis, back/neck stiffness
+- **👶 Pediatrics**: Infant & child health, vaccinations, growth milestones
+- **🔬 Dermatology**: Skin rashes, acne, eczema, hair loss, skin lesions
+- **🫁 Pulmonology**: Persistent cough, asthma, shortness of breath
+- **🩺 General Medicine**: Fever, general fatigue, viral infections, multi-symptom evaluations
+- **🧠 Psychiatry**: Anxiety, depression, sleep disorders, stress management
+- **👁️ Ophthalmology**: Vision changes, eye strain, red eye, infections
+- **👂 ENT**: Ear pain, sinus congestion, sore throat, tinnitus
+
+*You can book a direct consultation with any of these specialists from your **Book Appointment** tab.*
+
+---
+⚠️ I am an AI assistant, not a doctor. This guidance is for reference only.`,
+      emergency: false
+    };
+  }
+
+  // 3. Symptoms, Body Parts & Triage (stomach, head, joint, fever, skin, eye, etc.)
+  const symptomKeywords = ['symptom', 'pain', 'ache', 'fever', 'cough', 'headache', 'stomach', 'back', 'joint', 'skin', 'eye', 'throat', 'nausea', 'vomit', 'dizzy', 'fatigue', 'tired', 'swelling', 'infection', 'cold', 'flu', 'bp', 'sugar', 'blood pressure'];
+  if (symptomKeywords.some(kw => lowerMsg.includes(kw))) {
+    // Extract main symptom highlight
+    let symptomCategory = 'General Symptoms';
+    if (lowerMsg.includes('stomach') || lowerMsg.includes('abdomen') || lowerMsg.includes('acidity') || lowerMsg.includes('nausea')) symptomCategory = 'Gastrointestinal / Abdominal Concerns';
+    else if (lowerMsg.includes('head') || lowerMsg.includes('headache') || lowerMsg.includes('migraine')) symptomCategory = 'Neurological / Headache Concerns';
+    else if (lowerMsg.includes('joint') || lowerMsg.includes('back') || lowerMsg.includes('knee') || lowerMsg.includes('bone')) symptomCategory = 'Musculoskeletal / Joint Concerns';
+    else if (lowerMsg.includes('skin') || lowerMsg.includes('rash') || lowerMsg.includes('itching')) symptomCategory = 'Dermatological / Skin Concerns';
+    else if (lowerMsg.includes('eye') || lowerMsg.includes('vision')) symptomCategory = 'Ophthalmic / Eye Concerns';
+    else if (lowerMsg.includes('throat') || lowerMsg.includes('cough') || lowerMsg.includes('cold') || lowerMsg.includes('fever')) symptomCategory = 'ENT / Respiratory Concerns';
+
+    return {
+      response: `### 📝 Symptom Assessment Guidance: ${symptomCategory}
+
+Thank you for providing your symptom details ("${userMessage}").
+
+**Key Details to Note for Your Doctor:**
+- **Duration**: How many hours or days have you felt this?
+- **Severity**: Is the intensity mild, moderate, or severe (1-10)?
+- **Triggers**: Does eating, moving, or resting make it better or worse?
+- **Associated Symptoms**: Any fever, chills, dizziness, or weakness?
+
+**Next Steps on Swasthya Saarthi:**
+1. Open the **Symptom Checker** tool in your patient portal to complete a guided clinical summary.
+2. The summary will automatically be attached to your appointment record so your doctor has complete context before your visit.
+
+---
+⚠️ I am an AI assistant, not a doctor. Please consult a qualified physician for an accurate medical diagnosis.`,
+      emergency: false
+    };
+  }
+
+  // 4. Lab Tests, Reports & Medical Terms (HbA1c, CBC, Blood test, MRI, CT, X-ray, Biopsy, etc.)
+  if (lowerMsg.includes('test') || lowerMsg.includes('report') || lowerMsg.includes('hba1c') || lowerMsg.includes('cbc') || lowerMsg.includes('mri') || lowerMsg.includes('ct') || lowerMsg.includes('x-ray') || lowerMsg.includes('xray') || lowerMsg.includes('biopsy') || lowerMsg.includes('sugar') || lowerMsg.includes('thyroid') || lowerMsg.includes('what is') || lowerMsg.includes('meaning') || lowerMsg.includes('explain')) {
+    return {
+      response: `### 🔬 Medical Terms & Diagnostic Reports
+
+**Common Clinical Terms Explained:**
+- **HbA1c**: Reflects average blood glucose over the past 2-3 months (Normal: <5.7%, Prediabetes: 5.7-6.4%, Diabetes: ≥6.5%).
+- **CBC (Complete Blood Count)**: Evaluates red blood cells (anemia), white blood cells (infection), and platelets (clotting).
+- **Lipid Profile**: Measures cholesterol (LDL, HDL) and triglycerides for cardiovascular risk assessment.
+- **LFT / KFT**: Liver and Kidney function panel screening.
+- **MRI / CT / X-Ray**: Medical imaging used to examine internal organs, soft tissues, and bone structures.
+
+**Managing Reports on Swasthya Saarthi:**
+- Navigate to **My Reports** in your dashboard to securely upload, organize, and view PDF or image lab results.
+
+---
+⚠️ I am an AI assistant, not a doctor. Always review diagnostic report results directly with your ordering physician.`,
+      emergency: false
+    };
+  }
+
+  // 5. Wellness, Diet, Lifestyle & Prevention
+  if (lowerMsg.includes('diet') || lowerMsg.includes('exercise') || lowerMsg.includes('sleep') || lowerMsg.includes('wellness') || lowerMsg.includes('healthy') || lowerMsg.includes('weight') || lowerMsg.includes('water') || lowerMsg.includes('nutrition')) {
+    return {
+      response: `### 🥗 Health & Wellness Recommendations
+
+**Core Pillars of Health:**
+- **Hydration**: Drink 2.5–3 liters of water daily.
+- **Balanced Nutrition**: Focus on whole foods, fiber, fresh vegetables, lean protein, and reduced refined sugars.
+- **Physical Activity**: Aim for 150 minutes of moderate aerobic exercise (brisk walking, cycling) per week.
+- **Rest & Sleep**: Prioritize 7-9 hours of restful sleep every night for cellular repair and mental clarity.
+- **Routine Screenings**: Undergo annual health checkups and blood screenings as advised by your GP.
+
+---
+⚠️ I am an AI assistant, not a doctor. Consult a registered dietitian or doctor for personalized health plans.`,
+      emergency: false
+    };
+  }
+
+  // 6. Platform Features & ABHA ID
+  if (lowerMsg.includes('abha') || lowerMsg.includes('how to') || lowerMsg.includes('how do i') || lowerMsg.includes('help') || lowerMsg.includes('portal') || lowerMsg.includes('feature')) {
+    return {
+      response: `### 🏥 Swasthya Saarthi Platform Guide
+
+**Key Features Available to You:**
+- 📊 **Priority Queue Tracking**: Real-time position tracking with live room notifications.
+- 📅 **Easy Booking**: Search specialists and pick convenient appointment slots.
+- 🆔 **ABHA Integration**: Link your 14-digit Ayushman Bharat Health Account under **Profile** for unified health records.
+- 📋 **Symptom Checker**: Pre-appointment structured questionnaire to assist your doctor.
+- 📁 **Medical Records**: Upload and store blood test reports, prescriptions, and scans under **My Reports**.
+
+How can I help you further with your healthcare account?
+
+---
+⚠️ I am an AI assistant. For technical support, please contact clinic administration.`,
+      emergency: false
+    };
+  }
+
+  // 7. Dynamic Tailored Response for Any Other Query
+  const cleanTopic = userMessage.length > 50 ? userMessage.substring(0, 47) + '...' : userMessage;
+
+  return {
+    response: `### 🩺 Information Regarding: "${cleanTopic}"
+
+Thank you for your inquiry regarding **"${cleanTopic}"**.
+
+As your **Swasthya Saarthi Health Assistant**, I can assist you with:
+- **Clinical Triage & Symptoms**: Detail your symptoms so we can help you prepare for a doctor visit.
+- **Specialist Referrals**: Guidance on selecting between Cardiology, Neurology, Orthopedics, Pediatrics, Dermatology, Pulmonology, and General Medicine.
+- **Swasthya Saarthi Services**: Queue token tracking, appointment scheduling, report uploads, and ABHA ID linking.
+
+Please let me know if you would like specific guidance on any of the above topics!
+
+---
+⚠️ I am an AI assistant, not a doctor. This information is for educational purposes only. Please consult a healthcare professional for medical advice, diagnosis, or treatment.`,
+    emergency: false
+  };
+}
+
+// Generate AI response (using Gemini API if GEMINI_API_KEY is present, else rule-based)
 async function generateAIResponse(userMessage, user, conversationHistory = []) {
   const emergencyCheck = checkEmergency(userMessage);
 
@@ -90,192 +254,61 @@ Your safety is the priority. Please seek immediate professional medical care.
     };
   }
 
-  // For prototype: generate contextual responses based on keywords
-  const lowerMsg = userMessage.toLowerCase();
+  // Try Gemini API if key is available
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (apiKey && apiKey.trim()) {
+    try {
+      const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
+      const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
-  // Appointment/queue related
-  if (lowerMsg.includes('appointment') || lowerMsg.includes('queue') || lowerMsg.includes('booking') || lowerMsg.includes('slot') || lowerMsg.includes('wait')) {
-    return {
-      response: `I can help with appointment and queue questions!
+      // Format conversation history into Gemini format
+      const contents = [];
+      if (Array.isArray(conversationHistory)) {
+        for (const msg of conversationHistory) {
+          const role = (msg.role === 'user') ? 'user' : 'model';
+          const text = msg.content || msg.text || '';
+          if (text) {
+            contents.push({ role, parts: [{ text }] });
+          }
+        }
+      }
 
-To give you specific information about your queue position or appointment, I'd need to know:
-- Which doctor you're seeing
-- Your appointment date/time
+      // Append current user message
+      contents.push({ role: 'user', parts: [{ text: userMessage }] });
 
-**General guidance:**
-- **Track your queue**: Use the "Queue Tracking" feature in your dashboard for real-time updates
-- **Booking**: Use "Book Appointment" to find available slots with specialists
-- **Cancellations**: You can cancel appointments from "My Appointments" tab
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents,
+        config: {
+          systemInstruction: buildSystemPrompt(user),
+          temperature: 0.7
+        }
+      });
 
-**Swasthya Saarthi features:**
-- 📊 Real-time queue tracking with estimated wait times
-- 🎯 Clinical priority queue (critical patients seen first)
-- 🔔 Live notifications for queue updates
-- 📅 Easy booking with available time slots
+      if (response && response.text) {
+        let textResponse = response.text.trim();
 
-Would you like help with something specific about your appointment?
+        // Ensure health disclaimer is present
+        const disclaimer = "⚠️ I am an AI assistant, not a doctor. This information is for educational purposes only. Please consult a healthcare professional for medical advice, diagnosis, or treatment.";
+        if (!textResponse.includes("⚠️ I am an AI assistant")) {
+          textResponse += `\n\n---\n${disclaimer}`;
+        }
 
----
-⚠️ I am an AI assistant, not a doctor. For medical concerns, please consult your healthcare provider.`,
-      emergency: false
-    };
+        return {
+          response: textResponse,
+          emergency: false,
+          provider: 'gemini'
+        };
+      }
+    } catch (geminiError) {
+      console.warn('Gemini API call error (falling back to rule engine):', geminiError.message || geminiError);
+    }
   }
 
-  // Specialty guidance
-  if (lowerMsg.includes('specialist') || lowerMsg.includes('specialty') || lowerMsg.includes('which doctor') || lowerMsg.includes('what kind of doctor')) {
-    return {
-      response: `I can help guide you to the right specialty! Here are the main specialties available on Swasthya Saarthi:
-
-**🩺 Cardiology** — Heart, chest pain, blood pressure, palpitations
-**🧠 Neurology** — Headaches, migraines, seizures, numbness, memory issues
-**🦴 Orthopedics** — Joint pain, fractures, sports injuries, back/neck pain
-**👶 Pediatrics** — Child health, vaccinations, growth concerns
-**🔬 Dermatology** — Skin conditions, rashes, acne, hair loss
-**🫁 Pulmonology** — Breathing issues, asthma, chronic cough
-**🩺 General Medicine** — Fevers, infections, general checkups, multiple symptoms
-**🧠 Psychiatry** — Anxiety, depression, sleep issues, mental wellness
-**👁️ Ophthalmology** — Eye problems, vision changes, eye pain
-**👂 ENT** — Ear infections, sinus issues, throat problems
-
-**To find the best match:**
-1. Tell me your main symptoms
-2. I'll suggest relevant specialties
-3. You can then browse doctors in that specialty
-
-What symptoms are you experiencing?
-
----
-⚠️ I am an AI assistant, not a doctor. This guidance is for reference only. A healthcare professional should determine the appropriate specialty for your condition.`,
-      emergency: false
-    };
-  }
-
-  // Symptom-related (but not emergency)
-  if (lowerMsg.includes('symptom') || lowerMsg.includes('pain') || lowerMsg.includes('ache') || lowerMsg.includes('feel') || lowerMsg.includes('sick') || lowerMsg.includes('fever') || lowerMsg.includes('cough') || lowerMsg.includes('headache') || lowerMsg.includes('nausea') || lowerMsg.includes('dizzy') || lowerMsg.includes('tired') || lowerMsg.includes('fatigue')) {
-    return {
-      response: `Thank you for sharing your symptoms. I can help you organize this information for your doctor visit.
-
-**For your appointment, it's helpful to note:**
-1. **Main symptom** — What's bothering you most?
-2. **Location** — Where exactly do you feel it?
-3. **Severity** — On a scale of 1-10, how bad is it?
-4. **Duration** — How long have you had this?
-5. **Triggers** — What makes it better or worse?
-5. **Associated symptoms** — Fever, nausea, dizziness, etc.
-6. **Medications** — Any current medications or allergies?
-
-**Swasthya Saarthi's Symptom Checker** (in your dashboard) guides you through these questions and creates a structured summary for your doctor.
-
-Would you like me to:
-- Help you prepare for your doctor visit?
-- Explain what a specific symptom might generally indicate (not a diagnosis)?
-- Guide you to start a formal symptom assessment?
-
----
-⚠️ I am an AI assistant, not a doctor. Symptoms can have many causes. Please discuss all concerns with your healthcare provider for proper evaluation.`,
-      emergency: false
-    };
-  }
-
-  // Platform help
-  if (lowerMsg.includes('how to') || lowerMsg.includes('how do i') || lowerMsg.includes('help') || lowerMsg.includes('use') || lowerMsg.includes('feature') || lowerMsg.includes('portal') || lowerMsg.includes('dashboard')) {
-    return {
-      response: `I'd be happy to help you use Swasthya Saarthi! Here's a quick guide:
-
-**🏠 Patient Dashboard Tabs:**
-- **Dashboard** — Your next appointment, queue position, quick stats
-- **My Appointments** — View all past/upcoming appointments
-- **Queue Tracking** — Real-time queue position with live updates
-- **Notifications** — Appointment confirmations, queue updates
-- **My Reports** — Upload/view medical documents (PDF, JPG, PNG)
-- **Symptom Checker** — Guided symptom assessment for doctor visits
-- **Profile** — Update info, link ABHA ID
-
-**🔑 Key Features:**
-- **Booking**: Click "Book Appointment" → Choose specialty → Pick doctor → Select slot → Confirm
-- **Queue**: Real-time position, estimated wait, priority level
-- **Reports**: Drag-drop upload, organized by type, download anytime
-- **ABHA**: Link your 14-digit ABHA ID in Profile for unified health records
-- **SSE**: Live updates work automatically when logged in
-
-**💡 Pro Tips:**
-- Enable notifications for queue updates
-- Use Symptom Checker before appointments
-- Link ABHA ID for seamless record sharing
-
-What specific feature would you like help with?
-
----
-⚠️ I am an AI assistant. For medical questions, please consult your doctor.`,
-      emergency: false
-    };
-  }
-
-  // Medical term explanation
-  if (lowerMsg.includes('what is') || lowerMsg.includes('what does') || lowerMsg.includes('meaning of') || lowerMsg.includes('define') || lowerMsg.includes('explain')) {
-    return {
-      response: `I can help explain medical terms! What term would you like me to clarify?
-
-**Common terms patients ask about:**
-- **Hypertension** = High blood pressure
-- **Tachycardia** = Fast heart rate (>100 bpm)
-- **Dyspnea** = Shortness of breath
-- **HbA1c** = 3-month average blood sugar (diabetes marker)
-- **CBC** = Complete Blood Count (standard blood test)
-- **MRI/CT/X-ray** = Different imaging types
-- **Biopsy** = Tissue sample for testing
-- **Prognosis** = Expected outcome of a condition
-
-Just tell me the term, and I'll explain it in plain language.
-
----
-⚠️ I am an AI assistant, not a doctor. Medical terminology can be complex — always confirm with your healthcare provider.`,
-      emergency: false
-    };
-  }
-
-  // General health/wellness
-  if (lowerMsg.includes('healthy') || lowerMsg.includes('diet') || lowerMsg.includes('exercise') || lowerMsg.includes('sleep') || lowerMsg.includes('stress') || lowerMsg.includes('wellness') || lowerMsg.includes('prevent')) {
-    return {
-      response: `Great question! Here are some general wellness tips:
-
-**🥗 Nutrition:** Eat a balanced diet with fruits, vegetables, whole grains, lean proteins. Stay hydrated.
-**🏃 Exercise:** Aim for 150 min/week moderate activity (walking, cycling, swimming).
-**😴 Sleep:** 7-9 hours/night. Consistent schedule helps.
-**🧘 Stress:** Try deep breathing, meditation, hobbies, or talking to someone.
-**🩺 Prevention:** Regular checkups, vaccinations, screenings per your doctor's advice.
-
-**Remember:** Everyone's needs differ based on age, conditions, medications. Your doctor can give personalized guidance.
-
-Would you like information on a specific topic like managing a condition, understanding test results, or preparing for a checkup?
-
----
-⚠️ I am an AI assistant, not a doctor. Wellness advice is general. Consult a healthcare professional for personalized recommendations.`,
-      emergency: false
-    };
-  }
-
-  // Default fallback
-  return {
-    response: `Hello! I'm your Swasthya Saarthi Health Assistant. 👋
-
-I can help you with:
-- **General health questions** & medical term explanations
-- **Finding the right specialist** for your symptoms
-- **Using Swasthya Saarthi** (booking, queue tracking, reports, etc.)
-- **Preparing for doctor visits** (organizing symptoms)
-- **Wellness & prevention** tips
-
-**For appointment/queue specifics**, I'll need your appointment details.
-
-**For health concerns**, please remember: I'm an AI assistant, not a doctor. I cannot diagnose or prescribe.
-
-What would you like help with today?
-
----
-⚠️ I am an AI assistant, not a doctor. This information is for educational purposes only. Please consult a healthcare professional for medical advice, diagnosis, or treatment.`,
-    emergency: false
-  };
+  // Fallback to rule engine
+  const fallbackResult = generateRuleBasedResponse(userMessage, user);
+  fallbackResult.provider = 'rule_engine';
+  return fallbackResult;
 }
 
 // POST /api/chatbot/message - Send message to chatbot
@@ -291,12 +324,13 @@ router.post('/message', async (req, res) => {
     // Generate AI response
     const result = await generateAIResponse(message.trim(), user, conversationHistory);
 
-    // Log conversation (optional - could store in DB)
-    console.log(`Chatbot [${user.id}]: User: "${message.substring(0, 50)}..." | Emergency: ${result.emergency}`);
+    // Log conversation
+    console.log(`Chatbot [${user.id}] (${result.provider || 'default'}): User: "${message.substring(0, 50)}..." | Emergency: ${result.emergency}`);
 
     res.json({
       response: result.response,
       emergency: result.emergency,
+      provider: result.provider || 'default',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -310,8 +344,6 @@ router.post('/message', async (req, res) => {
 
 // GET /api/chatbot/history - Get conversation history (placeholder for future)
 router.get('/history', (req, res) => {
-  // For prototype, we don't persist history server-side
-  // Frontend maintains session history in memory
   res.json({ messages: [] });
 });
 

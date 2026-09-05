@@ -1859,14 +1859,19 @@ function openLiveQueueTrackerModal(apptId) {
   const modal = document.getElementById('queue-modal');
   modal.classList.add('active');
 
-  const appt = state.nextAppointment || state.appointments[0];
+  const appt = state.nextAppointment || (state.appointments ? (state.appointments.find(a => a.id === apptId) || state.appointments[0]) : null);
   if (appt) {
-    const pos = appt.queue_number || 3;
+    const pos = appt.queue_number || 1;
     const suffix = pos === 1 ? 'st' : (pos === 2 ? 'nd' : (pos === 3 ? 'rd' : 'th'));
+    const ahead = Math.max(0, pos - 1);
     document.getElementById('qmodal-pos').textContent = `${pos}${suffix}`;
     document.getElementById('qmodal-doc').textContent = appt.doctor_name || 'Dr. Ananya Sharma';
     document.getElementById('qmodal-spec').textContent = appt.specialty_name || 'Cardiology';
     document.getElementById('qmodal-wait').textContent = `~${appt.estimated_wait_mins || 18} minutes`;
+    const aheadEl = document.getElementById('qmodal-ahead');
+    if (aheadEl) {
+      aheadEl.textContent = ahead === 0 ? '0 patients' : (ahead === 1 ? '1 patient' : `${ahead} patients`);
+    }
     document.getElementById('qmodal-loc').textContent = appt.doctor_location || 'AIIMS New Delhi (Room 302)';
   }
 }
@@ -2122,6 +2127,13 @@ function handleQueueUpdate(appointment) {
       animatePriorityPulse(waitEl, appointment.priority_level || 3);
     }
 
+    // Update patients ahead
+    const aheadEl = document.getElementById('qmodal-ahead');
+    if (aheadEl && appointment.queue_number !== undefined) {
+      const ahead = Math.max(0, appointment.queue_number - 1);
+      aheadEl.textContent = ahead === 0 ? '0 patients' : (ahead === 1 ? '1 patient' : `${ahead} patients`);
+    }
+
     // Update progress bar
     const progressEl = document.querySelector('.queue-progress-bar-fill');
     if (progressEl && appointment.queue_number) {
@@ -2165,15 +2177,20 @@ function openLiveQueueTrackerModal(apptId) {
     ], { duration: 300 });
   }
 
-  const appt = state.nextAppointment || state.appointments.find(a => a.id === apptId) || state.appointments[0];
+  const appt = state.nextAppointment || (state.appointments ? (state.appointments.find(a => a.id === apptId) || state.appointments[0]) : null);
   if (appt) {
     lastKnownQueue = appt;
-    const pos = appt.queue_number || 3;
+    const pos = appt.queue_number || 1;
     const suffix = pos === 1 ? 'st' : (pos === 2 ? 'nd' : (pos === 3 ? 'rd' : 'th'));
+    const ahead = Math.max(0, pos - 1);
     document.getElementById('qmodal-pos').textContent = `${pos}${suffix}`;
     document.getElementById('qmodal-doc').textContent = appt.doctor_name || 'Dr. Ananya Sharma';
     document.getElementById('qmodal-spec').textContent = appt.specialty_name || 'Cardiology';
     document.getElementById('qmodal-wait').textContent = `~${appt.estimated_wait_mins || 18} minutes`;
+    const aheadEl = document.getElementById('qmodal-ahead');
+    if (aheadEl) {
+      aheadEl.textContent = ahead === 0 ? '0 patients' : (ahead === 1 ? '1 patient' : `${ahead} patients`);
+    }
     document.getElementById('qmodal-loc').textContent = appt.doctor_location || 'AIIMS New Delhi (Room 302)';
 
     // Update progress bar
